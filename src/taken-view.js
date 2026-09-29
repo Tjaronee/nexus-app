@@ -90,16 +90,15 @@ function toggle(list, value) {
 /** @param {Row} row @param {(ref: IssueRef) => void} onOpen */
 function rowElement(row, onOpen) {
   const li = el('li', 'taak');
-  li.dataset.ref = String(row.issue.ref);
 
   // The whole row opens the Taak; the title is the button for keyboards and screen readers.
   li.addEventListener('click', (event) => {
     if (!(/** @type {Element} */ (event.target).closest('.link'))) onOpen(row.issue.ref);
   });
   const head = el('div', 'taak__head');
-  const open = /** @type {HTMLButtonElement} */ (el('button', 'taak__title', row.issue.title));
-  open.type = 'button';
-  head.append(open);
+  const titleButton = /** @type {HTMLButtonElement} */ (el('button', 'taak__title', row.issue.title));
+  titleButton.type = 'button';
+  head.append(titleButton);
   if (row.issue.assignees.length > 0) {
     const avatars = el('span', 'taak__avatars');
     for (const person of row.issue.assignees) {

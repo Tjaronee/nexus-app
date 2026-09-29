@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detailOf, blockerOptions, assigneeChange } from '../src/detail.js';
+import { detailOf, blockerOptions, assigneeChange, editChoices } from '../src/detail.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
 
@@ -30,7 +30,7 @@ test('reads Prio and Urgentie, treating an unlabelled Taak as middel / binnenkor
 
 test('lists what blocks the Taak, open or closed, and what it blocks', () => {
   const issues = [
-    issue({ number: 1, title: 'Verhuizen', blockedBy: [2, 3, 7] }),
+    issue({ number: 1, title: 'Verhuizen', blockedBy: [2, 3, 7, 'cid-9'] }),
     issue({ number: 2, title: 'Sleutel ophalen' }),
     issue({ number: 3, title: 'Dozen kopen', state: 'closed' }),
     issue({ number: 4, title: 'Kasten opbouwen', blockedBy: [1] }),
@@ -38,9 +38,10 @@ test('lists what blocks the Taak, open or closed, and what it blocks', () => {
   ];
   const d = detailOf(issues, 1);
   assert.deepEqual(d?.blockedBy, [
-    { ref: 2, title: 'Sleutel ophalen', open: true },
-    { ref: 3, title: 'Dozen kopen', open: false },
-    { ref: 7, title: '#7', open: true },
+    { ref: 2, title: 'Sleutel ophalen', open: true, known: true },
+    { ref: 3, title: 'Dozen kopen', open: false, known: true },
+    { ref: 7, title: '#7', open: true, known: false },
+    { ref: 'cid-9', title: 'Onbekende Taak', open: true, known: false },
   ]);
   assert.deepEqual(d?.blocking, [{ ref: 4, title: 'Kasten opbouwen' }]);
 });
@@ -69,4 +70,37 @@ test('turns the ticked people into who to add and who to remove, ignoring case',
   assert.deepEqual(assigneeChange(['Tjaronee'], ['tjaronee', 'partner']), { add: ['partner'], remove: [] });
   assert.deepEqual(assigneeChange(['Tjaronee', 'partner'], []), { add: [], remove: ['Tjaronee', 'partner'] });
   assert.deepEqual(assigneeChange([], []), { add: [], remove: [] });
+});
+
+test('the pickers show what the Taak has now, even a closed Epic or Mijlpaal', () => {
+  const issues = [
+    issue({ number: 1, title: 'Verhuizen', labels: ['Epic'] }),
+    issue({ number: 2, title: 'Oude klus', labels: ['Epic'], state: 'closed' }),
+    issue({ number: 3, parent: 2, milestone: { number: 9, title: 'Bruiloft' }, assignees: [{ login: 'Tjaronee', avatarUrl: '' }] }),
+  ];
+  const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: /** @type {const} */ ('open'), description: '', dueOn: null }];
+
+  const c = editChoices({ issues, milestones }, issues[2], 'tjaronee');
+
+  assert.deepEqual(c.epics.map((e) => e.title), ['Verhuizen', 'Oude klus']);
+  assert.equal(c.epic, 1);
+  assert.deepEqual(c.mijlpalen.map((m) => m.title), ['Nieuw huis 2026', 'Bruiloft']);
+  assert.equal(c.mijlpaal, 1);
+  assert.deepEqual(c.people, ['tjaronee']);
+  assert.deepEqual(c.toegewezen, ['tjaronee']);
+});
+
+test('the pickers show nothing chosen for a Taak without Epic, Mijlpaal or people', () => {
+  const taak = issue({ number: 3 });
+  const c = editChoices({ issues: [taak], milestones: [] }, taak, 'tjaronee');
+  assert.equal(c.epic, -1);
+  assert.equal(c.mijlpaal, -1);
+  assert.deepEqual(c.toegewezen, []);
+});
+
+test('someone Toegewezen who is not offered yet is added to the people', () => {
+  const taak = issue({ number: 3, assignees: [{ login: 'gast', avatarUrl: '' }] });
+  const c = editChoices({ issues: [], milestones: [] }, taak, 'tjaronee');
+  assert.deepEqual(c.people, ['tjaronee', 'gast']);
+  assert.deepEqual(c.toegewezen, ['gast']);
 });

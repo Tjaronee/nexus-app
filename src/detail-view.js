@@ -1,13 +1,11 @@
-import { detailOf, blockerOptions, assigneeChange } from './detail.js';
+import { detailOf, blockerOptions, assigneeChange, editChoices } from './detail.js';
 import { parseMarkdown, toggleTask } from './markdown.js';
-import { choices } from './quick-add.js';
-import { $, el, fillSelect } from './dom.js';
+import { renderMarkdown } from './markdown-view.js';
+import { $, el, fillSelect, peopleCheckboxes } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./quick-add.js').Store} Store */
-/** @typedef {import('./markdown.js').Block} Block */
-/** @typedef {import('./markdown.js').Inline} Inline */
 
 /**
  * The screen you get when you tap a Taak. Every edit goes straight to the
@@ -59,7 +57,8 @@ export function mountDetail({ getStore, getMe }) {
   });
   window.addEventListener('popstate', (event) => {
     const previous = event.state?.detailRef;
-    if (previous !== undefined) show(previous);
+    // Signed out meanwhile: an old history entry must not reopen a Taak.
+    if (previous !== undefined && getStore()) show(previous);
     else if (dialog.open) dialog.close();
   });
 
@@ -201,11 +200,12 @@ export function mountDetail({ getStore, getMe }) {
 
     $('d-blocked').replaceChildren(
       ...detail.blockedBy.map((b) => {
-        const li = refItem(b.ref, b.title, open);
+        // One the app doesn't know has no screen to open; it can only be removed.
+        const li = b.known ? refItem(b.ref, b.title, open) : el('li', undefined, b.title);
         if (!b.open) li.classList.add('done');
         const remove = /** @type {HTMLButtonElement} */ (el('button', 'remove', '×'));
         remove.type = 'button';
-        remove.setAttribute('aria-label', `${b.title} niet meer als blokkade`);
+        remove.setAttribute('aria-label', `Niet meer Geblokkeerd door ${b.title}`);
         remove.addEventListener('click', () => edit((store, r) => store.removeBlockedBy(r, b.ref)));
         li.append(remove);
         return li;
@@ -224,40 +224,17 @@ export function mountDetail({ getStore, getMe }) {
   function renderPickers(issue) {
     const store = getStore();
     if (!store) return;
-    const state = store.getState();
-    const offer = choices(state, getMe());
-
-    // A closed Epic or Mijlpaal it still belongs to stays choosable.
-    const parent = issue.parent === null ? undefined : state.issues.find((i) => i.number === issue.parent);
-    if (parent && !offer.epics.some((e) => e.ref === parent.ref)) offer.epics.push({ ref: parent.ref, title: parent.title });
-    if (issue.milestone && !offer.mijlpalen.some((m) => m.number === issue.milestone?.number)) offer.mijlpalen.push(issue.milestone);
+    const offer = editChoices(store.getState(), issue, getMe());
     offered = offer;
-
     if (document.activeElement !== epic) {
       fillSelect(epic, offer.epics, 'Geen Epic');
-      epic.value = String(offer.epics.findIndex((e) => parent && e.ref === parent.ref));
-      if (epic.selectedIndex < 0) epic.value = '';
+      epic.value = offer.epic < 0 ? '' : String(offer.epic);
     }
     if (document.activeElement !== mijlpaal) {
       fillSelect(mijlpaal, offer.mijlpalen, 'Geen Mijlpaal');
-      mijlpaal.value = String(offer.mijlpalen.findIndex((m) => m.number === issue.milestone?.number));
-      if (mijlpaal.selectedIndex < 0) mijlpaal.value = '';
+      mijlpaal.value = offer.mijlpaal < 0 ? '' : String(offer.mijlpaal);
     }
-
-    const assigned = issue.assignees.map((a) => a.login.toLowerCase());
-    const logins = [...offer.people];
-    for (const a of issue.assignees) if (!logins.some((l) => l.toLowerCase() === a.login.toLowerCase())) logins.push(a.login);
-    people.replaceChildren(
-      ...logins.map((login) => {
-        const label = document.createElement('label');
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.value = login;
-        box.checked = assigned.includes(login.toLowerCase());
-        label.append(box, ` ${login}`);
-        return label;
-      }),
-    );
+    people.replaceChildren(...peopleCheckboxes(offer.people, offer.toegewezen));
   }
 
   function renderBlockerOptions() {
@@ -272,7 +249,7 @@ export function mountDetail({ getStore, getMe }) {
         if (o.number) button.append(el('span', 'muted', ` #${o.number}`));
         button.addEventListener('click', () => {
           blockerSearch.hidden = true;
-          edit((s, r) => s.addBlockedBy(r, o.ref));
+          edit((store, r) => store.addBlockedBy(r, o.ref));
         });
         const li = el('li');
         li.append(button);
@@ -310,95 +287,6 @@ function commentItem(comment) {
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
-
-/**
- * Builds the DOM for parsed Markdown, with text only ever set as text.
- * Checkboxes can be ticked when `onToggle` is given.
- * @param {Block[]} blocks
- * @param {((taskIndex: number) => void) | null} onToggle
- */
-function renderMarkdown(blocks, onToggle) {
-  const root = el('div', 'markdown');
-  /** @type {HTMLElement | null} */
-  let list = null;
-  for (const block of blocks) {
-    if (block.type !== 'item') list = null;
-    switch (block.type) {
-      case 'paragraph': {
-        const p = el('p');
-        block.lines.forEach((line, i) => {
-          if (i > 0) p.append(el('br'));
-          p.append(...line.map(inline));
-        });
-        root.append(p);
-        break;
-      }
-      case 'heading':
-        root.append(withInline(el(`h${Math.min(block.level + 3, 6)}`), block.inline));
-        break;
-      case 'quote':
-        root.append(withInline(el('blockquote'), block.inline));
-        break;
-      case 'code':
-        root.append(withInline(el('pre'), [{ type: 'code', text: block.text }]));
-        break;
-      case 'item': {
-        const tag = block.ordered ? 'ol' : 'ul';
-        if (!list || list.tagName.toLowerCase() !== tag) {
-          list = el(tag);
-          root.append(list);
-        }
-        const li = el('li');
-        li.style.marginLeft = `${block.depth * 1.25}rem`;
-        if (block.task !== null) {
-          li.className = 'task';
-          const box = /** @type {HTMLInputElement} */ (el('input'));
-          box.type = 'checkbox';
-          box.checked = block.task;
-          box.disabled = !onToggle;
-          const index = /** @type {number} */ (block.taskIndex);
-          box.addEventListener('change', () => onToggle?.(index));
-          const label = el('label');
-          label.append(box, ' ');
-          li.append(withInline(label, block.inline));
-        } else {
-          withInline(li, block.inline);
-        }
-        list.append(li);
-        break;
-      }
-    }
-  }
-  return root;
-}
-
-/** @param {HTMLElement} node @param {Inline[]} tokens */
-function withInline(node, tokens) {
-  node.append(...tokens.map(inline));
-  return node;
-}
-
-/** @param {Inline} token @returns {Node} */
-function inline(token) {
-  switch (token.type) {
-    case 'text':
-      return document.createTextNode(token.text);
-    case 'code':
-      return el('code', undefined, token.text);
-    case 'strong':
-      return el('strong', undefined, token.text);
-    case 'em':
-      return el('em', undefined, token.text);
-    case 'link': {
-      const a = /** @type {HTMLAnchorElement} */ (el('a', undefined, token.text));
-      a.href = token.href;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      return a;
-    }
-  }
-}
-
 
 /** Grows a textarea to fit its text. @param {HTMLTextAreaElement} area */
 function fitHeight(area) {

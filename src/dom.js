@@ -12,6 +12,22 @@ export function el(tag, className, text) {
 }
 
 /**
+ * One labelled checkbox per login, ticked for those in `checked`.
+ * @param {string[]} logins @param {string[]} [checked]
+ */
+export function peopleCheckboxes(logins, checked = []) {
+  return logins.map((login) => {
+    const label = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = login;
+    box.checked = checked.includes(login);
+    label.append(box, ` ${login}`);
+    return label;
+  });
+}
+
+/**
  * Replaces a select's options; each value is the index into `items`.
  * @param {HTMLSelectElement} select
  * @param {{ title: string }[]} items

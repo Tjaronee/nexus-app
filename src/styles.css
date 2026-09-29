@@ -426,17 +426,7 @@ select[multiple].field { padding: 0.25rem; }
 }
 .back svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .number { flex: 1; margin: 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-.copy {
-  min-height: 36px;
-  padding: 0 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.closed { display: flex; align-items: center; gap: 0.75rem; margin: 0; }
-.closed span { flex: 1; }
-.closed button {
+.small-button {
   min-height: 36px;
   padding: 0 0.875rem;
   border: 1px solid var(--border);
@@ -444,6 +434,9 @@ select[multiple].field { padding: 0.25rem; }
   background: var(--surface);
   font-weight: 600;
 }
+
+.closed { display: flex; align-items: center; gap: 0.75rem; margin: 0; }
+.closed span { flex: 1; }
 
 .title-field {
   width: 100%;

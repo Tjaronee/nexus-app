@@ -1,5 +1,5 @@
 import { saveTaak, choices, DEFAULTS } from './quick-add.js';
-import { $, fillSelect } from './dom.js';
+import { $, fillSelect, peopleCheckboxes } from './dom.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
 /** @typedef {import('./quick-add.js').Store} Store */
@@ -97,16 +97,7 @@ export function mountQuickAdd({ getStore, getMe }) {
     fillSelect(epic, offered.epics, 'Geen Epic');
     fillSelect(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
     fillSelect(blocked, offered.blockers, null);
-    people.replaceChildren(
-      ...offered.people.map((login) => {
-        const label = document.createElement('label');
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.value = login;
-        label.append(box, ` ${login}`);
-        return label;
-      }),
-    );
+    people.replaceChildren(...peopleCheckboxes(offered.people));
     renderChips();
   }
 
