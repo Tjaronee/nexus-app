@@ -15,9 +15,10 @@ import { $, el, fillSelect, peopleCheckboxes } from './dom.js';
  * It is a full-screen dialog with its own history entry, so the phone's
  * back button closes it (or goes back to the Taak opened before).
  *
- * @param {{ getStore: () => Store | null, getMe: () => string }} deps
+ * @param {{ getStore: () => Store | null, getMe: () => string, onAddFile: (ref: IssueRef) => void }} deps
+ *   `onAddFile` opens the sheet to add a Kennisbank link.
  */
-export function mountDetail({ getStore, getMe }) {
+export function mountDetail({ getStore, getMe, onAddFile }) {
   const dialog = /** @type {HTMLDialogElement} */ ($('detail'));
   const title = /** @type {HTMLTextAreaElement} */ ($('d-title'));
   const epic = /** @type {HTMLSelectElement} */ ($('d-epic'));
@@ -98,6 +99,9 @@ export function mountDetail({ getStore, getMe }) {
   });
 
   $('d-reopen').addEventListener('click', () => edit((store, r) => store.reopen(r)));
+  $('d-add-file').addEventListener('click', () => {
+    if (ref !== null) onAddFile(ref);
+  });
 
   // The title is saved when you leave the field or press Enter.
   title.addEventListener('keydown', (event) => {

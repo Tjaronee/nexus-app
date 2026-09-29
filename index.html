@@ -88,6 +88,12 @@
       <p class="placeholder">Hier komen de Mijlpalen.</p>
     </section>
 
+    <div id="snackbar" class="snackbar" role="status" hidden>
+      <span id="snackbar-text" class="snackbar__text"></span>
+      <button id="snackbar-undo" type="button">Ongedaan maken</button>
+      <button id="snackbar-file" type="button">📎 Bestand toevoegen</button>
+    </div>
+
     <nav class="tabbar" role="tablist" aria-label="Onderdelen">
       <button id="tab-taken" role="tab" type="button" data-tab="taken" aria-controls="panel-taken">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg>
@@ -207,11 +213,28 @@
         </section>
 
         <section class="section" aria-labelledby="d-comments-title">
-          <h3 id="d-comments-title">Reacties</h3>
+          <div class="section__head">
+            <h3 id="d-comments-title">Reacties</h3>
+            <button id="d-add-file" type="button" class="link">📎 Bestand toevoegen</button>
+          </div>
           <ol id="d-comments" class="comments"></ol>
           <p id="d-no-comments" class="muted small" hidden>Nog geen reacties.</p>
         </section>
       </div>
+    </dialog>
+
+    <dialog id="kennisbank" class="sheet" aria-labelledby="kennisbank-title">
+      <h2 id="kennisbank-title">Bestand toevoegen</h2>
+      <form id="kennisbank-form" class="quick-add" novalidate>
+        <p id="kennisbank-for" class="muted small"></p>
+        <input id="kennisbank-link" class="field" type="url" inputmode="url" autocomplete="off"
+               placeholder="Plak de Kennisbank-link" aria-label="Kennisbank-link">
+        <p id="kennisbank-error" class="error" role="alert" hidden>Dit is geen link. Kopieer de link van het bestand in de Kennisbank.</p>
+        <div class="actions">
+          <button type="submit" class="primary">Toevoegen</button>
+          <button id="kennisbank-cancel" type="button" class="secondary">Annuleren</button>
+        </div>
+      </form>
     </dialog>
 
     <dialog id="settings" class="sheet" aria-labelledby="settings-title">
