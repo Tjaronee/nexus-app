@@ -1,4 +1,6 @@
 import { validateToken } from './auth.js';
+import { createStore } from './data/store.js';
+import { createGitHub } from './github.js';
 import { createSession } from './session.js';
 import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 
@@ -25,13 +27,22 @@ const storage = safeLocalStorage();
 const session = createSession(storage);
 /** Set when the token stops working, so the token screen can explain why. */
 let expired = false;
+/** @type {ReturnType<typeof createStore> | null} */
+let store = null;
+/** @type {(() => void) | null} */
+let stopSync = null;
+/** @type {string | null} */
+let connectedToken = null;
 
 session.subscribe(render);
+session.subscribe(connect);
 render();
+connect();
 revalidateInBackground();
 setUpLogin();
 setUpTabs();
 setUpSettings();
+$('dismiss-failed').addEventListener('click', () => store?.dismissFailed());
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
@@ -53,6 +64,42 @@ function render() {
     const settings = /** @type {HTMLDialogElement} */ ($('settings'));
     if (settings.open) settings.close();
   }
+}
+
+/** Starts talking to Nexus with the current token, or stops when signed out. */
+function connect() {
+  const current = session.current();
+  if ((current?.token ?? null) === connectedToken) return;
+  stopSync?.();
+  stopSync = null;
+  store = null;
+  connectedToken = current?.token ?? null;
+  if (current) {
+    const github = createGitHub({ token: current.token, onUnauthorized: expireSession });
+    store = createStore({ github, storage });
+    store.subscribe(renderSync);
+    stopSync = store.start();
+  }
+  renderSync();
+}
+
+/** The small indicator of waiting changes, and a notice for refused ones. */
+function renderSync() {
+  const state = store?.getState();
+  const indicator = $('sync');
+  const pending = state?.pending ?? 0;
+  const parts = [];
+  if (state && !state.online) parts.push('geen verbinding');
+  if (pending > 0) parts.push(pending === 1 ? '1 wijziging wacht' : `${pending} wijzigingen wachten`);
+  indicator.textContent = parts.join(' · ');
+  indicator.hidden = parts.length === 0;
+
+  const failed = state?.failed.length ?? 0;
+  $('failed-text').textContent =
+    failed === 1
+      ? 'Een wijziging is niet opgeslagen: GitHub weigerde hem.'
+      : `${failed} wijzigingen zijn niet opgeslagen: GitHub weigerde ze.`;
+  $('failed').hidden = failed === 0;
 }
 
 /** Token is revoked or has expired: back to the token screen, keep everything else. */

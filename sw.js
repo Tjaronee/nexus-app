@@ -4,7 +4,7 @@
 // network is too slow, the cached copy is used. Bump VERSION when the SHELL
 // list changes. GitHub API calls are never touched here; the data layer
 // handles those.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `nexus-shell-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const SHELL = [
@@ -15,6 +15,9 @@ const SHELL = [
   './src/main.js',
   './src/auth.js',
   './src/config.js',
+  './src/data/model.js',
+  './src/data/ops.js',
+  './src/data/store.js',
   './src/github.js',
   './src/session.js',
   './src/tabs.js',
