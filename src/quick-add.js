@@ -73,7 +73,7 @@ export function choices({ issues, milestones }, me) {
       .sort(byTitle);
 
   /** @type {string[]} */
-  const people = [me];
+  const people = me ? [me] : [];
   for (const { login } of issues.flatMap((i) => i.assignees)) {
     if (!people.some((p) => p.toLowerCase() === login.toLowerCase())) people.push(login);
   }

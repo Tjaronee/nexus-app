@@ -113,8 +113,7 @@ function rowElement(row, onOpen) {
     const avatars = el('span', 'taak__avatars');
     for (const person of row.issue.assignees) {
       const img = /** @type {HTMLImageElement} */ (el('img'));
-      // A Taak still being created has no avatar yet; GitHub serves one by login.
-      img.src = person.avatarUrl || `https://github.com/${encodeURIComponent(person.login)}.png`;
+      img.src = person.avatarUrl;
       img.alt = person.login;
       img.title = person.login;
       img.width = img.height = 24;
