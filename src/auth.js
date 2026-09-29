@@ -27,7 +27,8 @@ export async function validateToken(rawToken, { fetch = globalThis.fetch } = {})
   try {
     const userRes = await get('/user');
     if (!userRes.ok) return { ok: false, reason: 'error' };
-    const body = await userRes.json();
+    const body = await userRes.json().catch(() => null);
+    if (!body?.login) return { ok: false, reason: 'error' };
 
     const repoRes = await get(`/repos/${NEXUS_OWNER}/${NEXUS_REPO}/issues?per_page=1`);
     if (repoRes.status === 403 || repoRes.status === 404) return { ok: false, reason: 'no-access' };

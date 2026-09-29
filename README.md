@@ -24,6 +24,8 @@ Each of us creates a fine-grained personal access token once:
 
 Paste it into the app once. The phone remembers it.
 
+On iPhone, add the app to the home screen first and paste the token in the installed app: it doesn't share storage with Safari.
+
 ## Notifications
 
 Every Boodschap is an issue in Nexus, so by default GitHub may notify or email the other partner for each new item. To avoid that, set your watch settings for `Tjaronee/Nexus` to "Participating and @mentions".
@@ -36,7 +38,7 @@ Plain HTML, CSS and ES modules with no build step: GitHub Pages serves `main` as
 - `npm run typecheck`: TypeScript over the JSDoc types
 - `npm run icons`: redraw the PNG icons
 
-The service worker ([sw.js](sw.js)) caches the app shell. When you add a file to the shell, add it to `SHELL` there and bump `VERSION`.
+The service worker ([sw.js](sw.js)) caches the app shell and uses it when offline. When you add a file to the shell, add it to `SHELL` there and bump `VERSION`.
 
 ## Fallback: the GitHub website
 

@@ -1,9 +1,12 @@
-// Caches the app shell so the app opens without a connection. Shell files are
-// served from the cache at once and refreshed in the background, so a new
-// deploy shows up on the next open. Bump VERSION when the SHELL list changes.
-// GitHub API calls are never touched here; the data layer handles those.
+// Caches the app shell so the app opens without a connection. Online, shell
+// files come fresh from the network (bypassing the HTTP cache, so a deploy
+// shows at once and all files are from the same deploy); offline, or when the
+// network is too slow, the cached copy is used. Bump VERSION when the SHELL
+// list changes. GitHub API calls are never touched here; the data layer
+// handles those.
 const VERSION = 'v1';
 const CACHE = `nexus-shell-${VERSION}`;
+const NETWORK_TIMEOUT_MS = 3000;
 const SHELL = [
   './',
   './index.html',
@@ -21,7 +24,9 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })))),
+  );
   self.skipWaiting();
 });
 
@@ -37,19 +42,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-  event.respondWith(fromCacheThenRefresh(event, request));
+  event.respondWith(networkThenCache(event, request));
 });
 
-async function fromCacheThenRefresh(event, request) {
+async function networkThenCache(event, request) {
   const cache = await caches.open(CACHE);
+  const network = fetch(request, { cache: 'no-cache' }).then((response) => {
+    if (response.ok) event.waitUntil(cache.put(request, response.clone()));
+    return response;
+  });
+  network.catch(() => {}); // A late failure after we answered from cache is fine.
+  const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS));
+  const response = await Promise.race([network, timeout]).catch(() => undefined);
+  if (response) return response;
   const cached =
     (await cache.match(request, { ignoreSearch: true })) ??
     (request.mode === 'navigate' ? await cache.match('./index.html') : undefined);
-  const network = fetch(request).then((response) => {
-    if (response.ok) cache.put(request, response.clone());
-    return response;
-  });
-  if (!cached) return network;
-  event.waitUntil(network.catch(() => {}));
-  return cached;
+  return cached ?? network;
 }

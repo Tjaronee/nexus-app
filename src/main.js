@@ -71,7 +71,8 @@ async function revalidateInBackground() {
   const check = await validateToken(current.token);
   if (session.current()?.token !== current.token) return;
   if (check.ok) session.updateUser(check.user);
-  else if (check.reason === 'invalid' || check.reason === 'no-access') expireSession();
+  // Only a 401 means the token is dead; a 403 can also be a rate limit.
+  else if (check.reason === 'invalid') expireSession();
 }
 
 function setUpLogin() {
@@ -121,9 +122,18 @@ function setUpTabs() {
     }
   }
 
-  for (const tab of TABS) {
-    $(`tab-${tab.id}`).addEventListener('click', () => show(tab.id));
-  }
+  TABS.forEach((tab, i) => {
+    const button = $(`tab-${tab.id}`);
+    button.addEventListener('click', () => show(tab.id));
+    // Arrow keys move between tabs, as only the selected tab is in the tab order.
+    button.addEventListener('keydown', (event) => {
+      const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+      if (!step) return;
+      const next = TABS[(i + step + TABS.length) % TABS.length];
+      show(next.id);
+      $(`tab-${next.id}`).focus();
+    });
+  });
 
   let last = null;
   try {

@@ -76,6 +76,11 @@ test('reports a network problem when GitHub cannot be reached', async () => {
   assert.deepEqual(await validateToken('tok', { fetch }), { ok: false, reason: 'network' });
 });
 
+test('reports an unreadable user response as an error, not a network problem', async () => {
+  const { fetch } = fakeFetch({ '/user': () => new Response('<html>', { status: 200 }) });
+  assert.deepEqual(await validateToken('tok', { fetch }), { ok: false, reason: 'error' });
+});
+
 test('reports an unexpected GitHub answer as an error', async () => {
   const { fetch } = fakeFetch({ '/user': 500 });
   assert.deepEqual(await validateToken('tok', { fetch }), { ok: false, reason: 'error' });
