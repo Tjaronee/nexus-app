@@ -101,7 +101,8 @@ export function mountMijlpalen({ onOpen, onClose }) {
     $('m-taken').replaceChildren(...view.taken.map((row) => rowElement(row, onOpen, onClose)));
     $('m-taken-section').hidden = view.taken.length === 0;
     $('m-screen-empty').textContent = empty;
-    $('m-screen-empty').hidden = view.taken.length > 0;
+    // With Epics listed, the open Taken are in those.
+    $('m-screen-empty').hidden = view.taken.length + view.epics.length > 0;
   }
 
   /** @param {EpicSummary} e */
@@ -140,11 +141,16 @@ function card(title, progress, done, onTap) {
 /** @param {Progress} progress */
 function progressBar(progress) {
   const bar = el('span', 'bar');
-  bar.setAttribute('role', 'progressbar');
-  bar.setAttribute('aria-valuemin', '0');
-  bar.setAttribute('aria-valuemax', String(progress.total));
-  bar.setAttribute('aria-valuenow', String(progress.closed));
-  bar.setAttribute('aria-label', countText(progress));
+  // An empty one has no progress to announce; the count next to it says so.
+  if (progress.total > 0) {
+    bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', String(progress.total));
+    bar.setAttribute('aria-valuenow', String(progress.closed));
+    bar.setAttribute('aria-label', countText(progress));
+  } else {
+    bar.setAttribute('aria-hidden', 'true');
+  }
   const fill = el('span', 'bar__fill');
   fill.style.width = progress.total === 0 ? '0%' : `${(100 * progress.closed) / progress.total}%`;
   bar.append(fill);

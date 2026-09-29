@@ -89,7 +89,7 @@ function toggle(list, value) {
 }
 
 /**
- * One Taak as a list row; the Mijlpalen tab shows Taken this way too.
+ * One Taak as a list row.
  * @param {Row} row
  * @param {(ref: IssueRef) => void} onOpen
  * @param {(issue: Issue) => void} onClose
