@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { takenList, loadFilters, saveFilters, ALL } from '../src/taken.js';
+import { takenList, loadFilters, saveFilters, isFiltered, ALL } from '../src/taken.js';
 import { memoryStorage } from './memory-storage.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
@@ -214,4 +214,11 @@ test('unreadable or outdated remembered filters fall back to showing everything'
 
   storage.setItem('nexus.takenFilters', JSON.stringify({ prio: ['heel hoog', 'laag'], urgentie: 'nu', wie: 'ik' }));
   assert.deepEqual(loadFilters(storage), { ...ALL, prio: ['laag'] });
+});
+
+test('knows whether any filter is on', () => {
+  assert.equal(isFiltered(ALL), false);
+  assert.equal(isFiltered({ ...ALL, prio: ['hoog'] }), true);
+  assert.equal(isFiltered({ ...ALL, urgentie: ['nu'] }), true);
+  assert.equal(isFiltered({ ...ALL, wie: 'mijn' }), true);
 });

@@ -1,4 +1,4 @@
-import { takenList, loadFilters, saveFilters, ALL } from './taken.js';
+import { takenList, loadFilters, saveFilters, isFiltered } from './taken.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -24,24 +24,26 @@ export function mountTaken({ storage, onOpen }) {
 
   const panel = $('panel-taken');
   const searchInput = /** @type {HTMLInputElement} */ ($('taken-search'));
-  const wieButtons = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-wie]'));
-  const prioChips = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-prio]'));
-  const urgentieChips = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-urgentie]'));
+  const buttons = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-wie], [data-prio], [data-urgentie]'));
 
   searchInput.addEventListener('input', () => {
     search = searchInput.value;
     render();
   });
-  for (const button of wieButtons) {
-    button.addEventListener('click', () => setFilters({ ...filters, wie: /** @type {any} */ (button.dataset.wie) }));
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      const { wie, prio, urgentie } = /** @type {any} */ (button.dataset);
+      if (wie) setFilters({ ...filters, wie });
+      if (prio) setFilters({ ...filters, prio: toggle(filters.prio, prio) });
+      if (urgentie) setFilters({ ...filters, urgentie: toggle(filters.urgentie, urgentie) });
+    });
   }
-  for (const chip of prioChips) {
-    chip.addEventListener('click', () => setFilters({ ...filters, prio: toggle(filters.prio, /** @type {any} */ (chip.dataset.prio)) }));
-  }
-  for (const chip of urgentieChips) {
-    chip.addEventListener('click', () =>
-      setFilters({ ...filters, urgentie: toggle(filters.urgentie, /** @type {any} */ (chip.dataset.urgentie)) }),
-    );
+
+  /** Whether a filter button is on. @param {HTMLButtonElement} button */
+  function pressed(button) {
+    const { wie, prio, urgentie } = /** @type {any} */ (button.dataset);
+    if (wie) return wie === filters.wie;
+    return prio ? filters.prio.includes(prio) : filters.urgentie.includes(urgentie);
   }
 
   /** @param {Filters} next */
@@ -52,10 +54,7 @@ export function mountTaken({ storage, onOpen }) {
   }
 
   function render() {
-    for (const b of wieButtons) b.setAttribute('aria-pressed', String(b.dataset.wie === filters.wie));
-    for (const c of prioChips) c.setAttribute('aria-pressed', String(filters.prio.includes(/** @type {any} */ (c.dataset.prio))));
-    for (const c of urgentieChips)
-      c.setAttribute('aria-pressed', String(filters.urgentie.includes(/** @type {any} */ (c.dataset.urgentie))));
+    for (const button of buttons) button.setAttribute('aria-pressed', String(pressed(button)));
 
     const { free, blocked } = takenList(issues, { filters, search, me });
     $('taken-list').replaceChildren(...free.map((row) => rowElement(row, onOpen)));
@@ -63,8 +62,7 @@ export function mountTaken({ storage, onOpen }) {
     $('taken-blocked').hidden = blocked.length === 0;
 
     const empty = $('taken-empty');
-    const filtered = search.trim() !== '' || JSON.stringify(filters) !== JSON.stringify(ALL);
-    empty.textContent = filtered ? 'Geen Taken die hierbij passen.' : 'Geen open Taken.';
+    empty.textContent = search.trim() !== '' || isFiltered(filters) ? 'Geen Taken die hierbij passen.' : 'Geen open Taken.';
     empty.hidden = free.length + blocked.length > 0;
   }
 
@@ -79,6 +77,19 @@ export function mountTaken({ storage, onOpen }) {
       issues = nextIssues;
       me = nextMe;
       render();
+    },
+    /**
+     * Scrolls to a Taak's row and highlights it. False when it isn't in the list.
+     * @param {IssueRef} ref
+     */
+    reveal(ref) {
+      const row = /** @type {HTMLElement | null} */ (panel.querySelector(`[data-ref="${CSS.escape(String(ref))}"]`));
+      if (!row) return false;
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.remove('flash');
+      void row.offsetWidth; // Restart the animation when tapped twice.
+      row.classList.add('flash');
+      return true;
     },
   };
 }

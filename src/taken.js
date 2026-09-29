@@ -20,15 +20,20 @@ import { kindOf, matchesRef, prioOf, urgentieOf, PRIO_LABELS, URGENTIE_LABELS } 
  */
 
 /** In display and sort order. */
-export const PRIOS = /** @type {Prio[]} */ (Object.keys(PRIO_LABELS)).reverse();
-export const URGENTIES = /** @type {Urgentie[]} */ (Object.keys(URGENTIE_LABELS));
+const PRIOS = /** @type {Prio[]} */ (Object.keys(PRIO_LABELS)).reverse();
+const URGENTIES = /** @type {Urgentie[]} */ (Object.keys(URGENTIE_LABELS));
 /** @type {Wie[]} */
-export const WIE = ['iedereen', 'mijn', 'partner'];
+const WIE = ['iedereen', 'mijn', 'partner'];
 
 /** @type {Filters} */
 export const ALL = { prio: [], urgentie: [], wie: 'iedereen' };
 
 const FILTERS_KEY = 'nexus.takenFilters';
+
+/** Whether these filters hide anything. @param {Filters} filters */
+export function isFiltered(filters) {
+  return filters.prio.length > 0 || filters.urgentie.length > 0 || filters.wie !== ALL.wie;
+}
 
 /**
  * The open Taken, filtered and sorted by Urgentie then Prio, with the

@@ -99,13 +99,8 @@ function renderTaken() {
  * @param {IssueRef} ref
  */
 function openTaak(ref) {
-  const row = /** @type {HTMLElement | null} */ ($('panel-taken').querySelector(`[data-ref="${CSS.escape(String(ref))}"]`));
-  if (row) {
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    row.classList.remove('flash');
-    void row.offsetWidth; // Restart the animation when tapped twice.
-    row.classList.add('flash');
-  } else if (typeof ref === 'number') {
+  if (taken.reveal(ref)) return;
+  if (typeof ref === 'number') {
     window.open(`https://github.com/${NEXUS_OWNER}/${NEXUS_REPO}/issues/${ref}`, '_blank', 'noopener');
   }
 }
