@@ -5,6 +5,7 @@ import { createGitHub } from './github.js';
 import { createSession } from './session.js';
 import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
+import { mountQuickAdd } from './quick-add-view.js';
 
 /** @typedef {import('./auth.js').TokenProblem} TokenProblem */
 /** @typedef {import('./tabs.js').TabId} TabId */
@@ -37,6 +38,7 @@ let stopSync = null;
 /** @type {string | null} */
 let connectedToken = null;
 const taken = mountTaken({ storage, onOpen: openTaak });
+mountQuickAdd({ getStore: () => store, getMe: () => session.current()?.user.login ?? '' });
 
 session.subscribe(render);
 session.subscribe(connect);

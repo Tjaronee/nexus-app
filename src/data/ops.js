@@ -4,7 +4,7 @@
  * straight away; `send` makes it happen on GitHub.
  */
 
-import { withCid, matchesRef } from './model.js';
+import { withCid, matchesRef, avatarOf } from './model.js';
 
 /** @typedef {import('./model.js').Issue} Issue */
 /** @typedef {import('./model.js').IssueRef} IssueRef */
@@ -110,7 +110,7 @@ function placeholder(op) {
     state: 'open',
     stateReason: null,
     labels: op.labels,
-    assignees: op.assignees.map((login) => ({ login, avatarUrl: '' })),
+    assignees: op.assignees.map((login) => ({ login, avatarUrl: avatarOf(login) })),
     milestone: op.milestone === null ? null : { number: op.milestone, title: '' },
     parent: null,
     subIssues: { total: 0, completed: 0 },

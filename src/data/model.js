@@ -44,6 +44,9 @@ export const PRIO_LABELS = { laag: 'prio: low', middel: 'prio: medium', hoog: 'p
 /** @type {Record<Urgentie, string>} */
 export const URGENTIE_LABELS = { nu: 'urgency: now', binnenkort: 'urgency: soon', ooit: 'urgency: whenever' };
 
+/** GitHub serves anyone's avatar by login, for people we have no avatar URL for. @param {string} login */
+export const avatarOf = (login) => `https://github.com/${encodeURIComponent(login)}.png`;
+
 const CID_MARKER = /\s*<!-- cid:([\w-]+) -->\s*$/;
 
 /** @param {string} body @param {string} cid */

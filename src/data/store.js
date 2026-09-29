@@ -1,6 +1,6 @@
 import { NEXUS_OWNER, NEXUS_REPO } from '../config.js';
 import { UnauthorizedError } from '../github.js';
-import { toIssue, matchesRef, splitCid, PRIO_LABELS, URGENTIE_LABELS } from './model.js';
+import { toIssue, matchesRef, splitCid, avatarOf, PRIO_LABELS, URGENTIE_LABELS } from './model.js';
 import { apply, send, settle, MissingIssueError } from './ops.js';
 
 /** @typedef {import('./model.js').Issue} Issue */
@@ -145,7 +145,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   /** A person by login, with their avatar if we have seen it. @param {string} login @returns {Person} */
   function person(login) {
     const known = issues().flatMap((i) => i.assignees).find((a) => a.login === login && a.avatarUrl);
-    return known ?? { login, avatarUrl: `https://github.com/${encodeURIComponent(login)}.png` };
+    return known ?? { login, avatarUrl: avatarOf(login) };
   }
 
   /** @param {IssueRef} ref */
