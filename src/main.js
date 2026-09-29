@@ -1,11 +1,14 @@
 import { validateToken } from './auth.js';
+import { NEXUS_OWNER, NEXUS_REPO } from './config.js';
 import { createStore } from './data/store.js';
 import { createGitHub } from './github.js';
 import { createSession } from './session.js';
 import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
+import { mountTaken } from './taken-view.js';
 
 /** @typedef {import('./auth.js').TokenProblem} TokenProblem */
 /** @typedef {import('./tabs.js').TabId} TabId */
+/** @typedef {import('./data/model.js').IssueRef} IssueRef */
 
 /** @type {Record<TokenProblem, string>} */
 const TOKEN_PROBLEMS = {
@@ -33,6 +36,7 @@ let store = null;
 let stopSync = null;
 /** @type {string | null} */
 let connectedToken = null;
+const taken = mountTaken({ storage, onOpen: openTaak });
 
 session.subscribe(render);
 session.subscribe(connect);
@@ -78,9 +82,32 @@ function connect() {
     const github = createGitHub({ token: current.token, onUnauthorized: expireSession });
     store = createStore({ github, storage });
     store.subscribe(renderSync);
+    store.subscribe(renderTaken);
     stopSync = store.start();
   }
   renderSync();
+  renderTaken();
+}
+
+function renderTaken() {
+  taken.update(store?.getState().issues ?? [], session.current()?.user.login ?? '');
+}
+
+/**
+ * Shows a Taak. Until there is a detail screen, that means scrolling to its
+ * row, or opening it on GitHub when it isn't in the list.
+ * @param {IssueRef} ref
+ */
+function openTaak(ref) {
+  const row = /** @type {HTMLElement | null} */ ($('panel-taken').querySelector(`[data-ref="${CSS.escape(String(ref))}"]`));
+  if (row) {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.remove('flash');
+    void row.offsetWidth; // Restart the animation when tapped twice.
+    row.classList.add('flash');
+  } else if (typeof ref === 'number') {
+    window.open(`https://github.com/${NEXUS_OWNER}/${NEXUS_REPO}/issues/${ref}`, '_blank', 'noopener');
+  }
 }
 
 /** The small indicator of waiting changes, and a notice for refused ones. */
