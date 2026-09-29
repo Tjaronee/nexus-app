@@ -1,3 +1,4 @@
+import { normalise } from './text.js';
 import { kindOf, matchesRef, prioOf, urgentieOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
@@ -91,11 +92,6 @@ function matchesSearch(issue, terms) {
   if (terms.length === 0) return true;
   const text = normalise(`${issue.title}\n${issue.body}`);
   return terms.every((t) => text.includes(t));
-}
-
-/** Lowercase without accents, so "cafe" finds "Café". @param {string} text */
-function normalise(text) {
-  return text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 }
 
 /** @param {Row} a @param {Row} b */
