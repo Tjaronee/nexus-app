@@ -44,10 +44,15 @@
   <div id="app" class="app" hidden>
     <header class="topbar">
       <h1 id="tab-title">Taken</h1>
+      <span id="sync" class="sync" role="status" hidden></span>
       <button id="open-settings" class="avatar-button" type="button" aria-label="Instellingen">
         <img id="avatar" alt="" width="32" height="32">
       </button>
     </header>
+    <div id="failed" class="banner" role="alert" hidden>
+      <span id="failed-text"></span>
+      <button id="dismiss-failed" type="button">OK</button>
+    </div>
 
     <section id="panel-taken" class="panel" role="tabpanel" aria-labelledby="tab-taken">
       <p class="placeholder">Hier komen de Taken.</p>
