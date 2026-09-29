@@ -23,3 +23,11 @@ Each of us creates a fine-grained personal access token once:
 - Permissions: **Issues: read & write** (Metadata: read is added automatically)
 
 Paste it into the app once. The phone remembers it.
+
+## Notifications
+
+Every Boodschap is an issue in Nexus, so by default GitHub may notify or email the other partner for each new item. To avoid that, set your watch settings for `Tjaronee/Nexus` to "Participating and @mentions".
+
+## Fallback: the GitHub website
+
+If the app is down, the data stays usable on github.com. The shopping list is `is:open label:boodschappen` (add `label:"waar: praxis"` to filter by Plek), and the task list is `is:open -label:boodschappen`.
