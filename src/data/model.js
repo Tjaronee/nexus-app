@@ -51,8 +51,17 @@ export function withCid(body, cid) {
   return `${body}\n\n<!-- cid:${cid} -->`;
 }
 
-/** @param {string | null | undefined} body */
-function splitCid(body) {
+/**
+ * Whether `ref` names this issue: by number, or by the client ID it was created with.
+ * @param {Issue} issue
+ * @param {IssueRef} ref
+ */
+export function matchesRef(issue, ref) {
+  return issue.ref === ref || (issue.cid !== null && issue.cid === ref);
+}
+
+/** Separates the hidden client ID from the visible text. @param {string | null | undefined} body */
+export function splitCid(body) {
   const text = body ?? '';
   const match = text.match(CID_MARKER);
   return match ? { body: text.slice(0, match.index), cid: match[1] } : { body: text, cid: null };
@@ -97,6 +106,15 @@ export function kindOf(issue) {
   if (issue.labels.includes(BOODSCHAPPEN_LABEL)) return 'boodschap';
   if (issue.labels.includes(EPIC_LABEL) || issue.subIssues.total > 0) return 'epic';
   return 'taak';
+}
+
+/**
+ * The open issues this one is blocking, found by reversing their blocked-by lists.
+ * @param {Issue[]} issues
+ * @param {Issue} issue
+ */
+export function blocking(issues, issue) {
+  return issues.filter((other) => other.state === 'open' && other.blockedBy.some((ref) => matchesRef(issue, ref)));
 }
 
 /**

@@ -1,6 +1,6 @@
 import { NEXUS_OWNER, NEXUS_REPO } from '../config.js';
 import { UnauthorizedError } from '../github.js';
-import { toIssue, PRIO_LABELS, URGENTIE_LABELS } from './model.js';
+import { toIssue, matchesRef, splitCid, PRIO_LABELS, URGENTIE_LABELS } from './model.js';
 import { apply, send, settle, MissingIssueError } from './ops.js';
 
 /** @typedef {import('./model.js').Issue} Issue */
@@ -43,7 +43,9 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   let queue = readJson(storage, QUEUE_KEY) ?? [];
   let online = true;
   /** Bumped by every write GitHub accepted; a refresh that overlaps one is stale. */
-  let writes = 0;
+  let acceptedWrites = 0;
+  /** Whether GitHub has answered a refresh since the app opened, so `base` is current. */
+  let refreshed = false;
   /** @type {Issue[] | null} */
   let view = null;
   /** @type {Set<() => void>} */
@@ -73,10 +75,11 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
 
   /** Loaded comments plus ones still waiting to be sent. @param {IssueRef} ref @returns {Comment[]} */
   function comments(ref) {
-    const issue = issues().find((i) => i.ref === ref || i.cid === ref);
-    const loaded = (issue?.number && loadedComments.get(issue.number)) || [];
+    const issue = issues().find((i) => matchesRef(i, ref));
+    if (!issue) return [];
+    const loaded = (issue.number && loadedComments.get(issue.number)) || [];
     const waiting = queue.flatMap((op) =>
-      op.type === 'comment' && (op.ref === issue?.ref || op.ref === issue?.cid)
+      op.type === 'comment' && matchesRef(issue, op.ref)
         ? [{ id: null, body: op.body, author: null, createdAt: op.at, pending: true }]
         : [],
     );
@@ -94,17 +97,25 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   }
 
   function persistCache() {
-    writeJson(storage, CACHE_KEY, { issues: base, milestones, labels, responses: [...responses] });
+    // Comments are only kept for the session; the rest is what the app opens with.
+    const kept = [...responses].filter(([path]) => !path.includes('/comments'));
+    writeJson(storage, CACHE_KEY, { issues: base, milestones, labels, responses: kept });
   }
 
   function persistQueue() {
+    if (writeJson(storage, QUEUE_KEY, queue)) return;
+    // Storage is full. Waiting changes matter more than the cache: drop it and retry.
+    try {
+      storage.removeItem(CACHE_KEY);
+    } catch {
+      // Storage is blocked altogether; the queue then lives only in memory.
+    }
     writeJson(storage, QUEUE_KEY, queue);
   }
 
   /** @param {Op} op */
   function enqueue(op) {
-    const seq = (queue.at(-1)?.seq ?? 0) + 1;
-    queue = [...queue, { ...op, seq }];
+    queue = [...queue, op];
     persistQueue();
     changed();
     void flush();
@@ -126,7 +137,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
    * @param {V} value
    */
   function swapLabel(ref, labels, value) {
-    const current = issues().find((i) => i.ref === ref || i.cid === ref)?.labels ?? [];
+    const current = issues().find((i) => matchesRef(i, ref))?.labels ?? [];
     const others = Object.values(labels).filter((l) => l !== labels[value] && current.includes(/** @type {string} */ (l)));
     enqueue({ type: 'labels', ref, add: [labels[value]], remove: /** @type {string[]} */ (others) });
   }
@@ -138,7 +149,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   }
 
   /** @param {IssueRef} ref */
-  const resolve = (ref) =>base.find((i) => i.ref === ref || (i.cid !== null && i.cid === ref));
+  const resolve = (ref) => base.find((i) => matchesRef(i, ref));
 
   /**
    * Sends queued changes in order. Stops at the first one that can't be sent
@@ -155,33 +166,38 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       return flushAgain;
     }
     const run = (async () => {
-      while (queue.length > 0) {
-        const outcome = await sendOne(queue[0]);
-        if (outcome === 'retry') return;
-        queue = queue.slice(1);
-        persistQueue();
-        changed();
+      try {
+        while (queue.length > 0) {
+          const outcome = await sendOne(queue[0]);
+          if (outcome === 'retry') return;
+          queue = queue.slice(1);
+          persistQueue();
+          changed();
+        }
+      } catch (err) {
+        // A bug, not GitHub: keep the change queued and try again next sync.
+        console.error('Sending a change failed', err);
       }
     })();
     flushing = run;
-    run.finally(() => {
+    void run.then(() => {
       if (flushing === run) flushing = null;
-    }).catch(() => {});
+    });
     return run;
   }
 
   /** @param {QueuedOp} op @returns {Promise<'done' | 'dropped' | 'retry'>} */
   async function sendOne(op) {
-    if (op.type === 'create' && !op.attempted) {
+    if (!op.attempted) {
       // Remember the try before making it: if the answer is lost, the next
-      // try first checks whether GitHub created the issue anyway.
+      // try first checks whether GitHub already has the change.
       queue = [{ ...op, attempted: true }, ...queue.slice(1)];
       persistQueue();
     }
     try {
       const raw = await send(op, { request: github.request, repo: REPO, resolve });
       online = true;
-      writes++;
+      acceptedWrites++;
       if (raw) upsert(raw);
       else base = apply(base, settle(op, resolve));
       persistCache();
@@ -189,6 +205,8 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       return 'done';
     } catch (err) {
       if (err instanceof UnauthorizedError) return 'retry';
+      // Not knowing the issue only means it's gone once we have fresh data.
+      if (err instanceof MissingIssueError && !refreshed) return 'retry';
       if (err instanceof Response && isTemporary(err)) return 'retry';
       if (err instanceof MissingIssueError || err instanceof Response) {
         failed = [...failed, { op, status: err instanceof Response ? err.status : 404 }];
@@ -241,8 +259,19 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     );
   }
 
-  async function refresh() {
-    const writesBefore = writes;
+  /** @type {Promise<void> | null} */
+  let refreshing = null;
+
+  /** Fetches what changed on GitHub. Overlapping calls share one refresh. */
+  function refresh() {
+    refreshing ??= refreshOnce().finally(() => {
+      refreshing = null;
+    });
+    return refreshing;
+  }
+
+  async function refreshOnce() {
+    const writesBefore = acceptedWrites;
     /** @type {string[]} */
     const paths = [];
     try {
@@ -260,14 +289,17 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       }
       const ms = await conditionalGet(`${REPO}/milestones?state=all&per_page=100`, toMilestones);
       const ls = await conditionalGet(`${REPO}/labels?per_page=100`, (raw) => raw.map((/** @type {any} */ l) => l.name));
+      const fresh = anyChanged ? await withBlockers(fetched) : null;
       online = true;
-      if (writes !== writesBefore) {
+      if (acceptedWrites !== writesBefore) {
         // A write landed meanwhile, so this answer may predate it. Forget
         // the ETags so the next refresh fetches the new state in full.
         for (const p of paths) responses.delete(p);
-      } else if (anyChanged) {
-        base = await withBlockers(fetched);
+      } else if (fresh) {
+        base = fresh;
       }
+      refreshed = true;
+      if (queue.length > 0) void flush();
       milestones = ms.body;
       labels = ls.body;
       if (anyChanged || ms.changed || ls.changed) persistCache();
@@ -311,7 +343,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     loadComments,
     comments,
     /** @param {IssueRef} ref @param {string} body */
-    comment: (ref, body) => enqueue({ type: 'comment', ref, body, at: new Date().toISOString() }),
+    comment: (ref, body) => enqueue({ type: 'comment', ref, body, at: new Date().toISOString(), cid: newId() }),
     /** @param {() => void} listener */
     subscribe(listener) {
       listeners.add(listener);
@@ -359,11 +391,11 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     removeBlockedBy: (ref, blocker) => enqueue({ type: 'blockedBy', ref, blocker, add: false }),
     /** Puts a Taak under an Epic, or (with null) takes it out. @param {IssueRef} ref @param {IssueRef | null} parent */
     setParent(ref, parent) {
-      const previous = issues().find((i) => i.ref === ref || i.cid === ref)?.parent ?? null;
+      const previous = issues().find((i) => matchesRef(i, ref))?.parent ?? null;
       enqueue({ type: 'parent', ref, parent, previous });
     },
     /** @param {IssueRef} ref @param {number | null} number */
-    setMilestone:(ref, number) =>
+    setMilestone: (ref, number) =>
       enqueue({
         type: 'milestone',
         ref,
@@ -375,7 +407,8 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
 /** Rate limits and GitHub outages pass; anything else won't succeed on retry. @param {Response} res */
 function isTemporary(res) {
   if (res.status === 429 || res.status >= 500) return true;
-  return res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0';
+  // Primary limit: remaining 0. Secondary limit: a Retry-After header.
+  return res.status === 403 && (res.headers.get('x-ratelimit-remaining') === '0' || res.headers.has('retry-after'));
 }
 
 /** @param {unknown} err */
@@ -387,7 +420,7 @@ function isNetworkError(err) {
 const toComments = (raw) =>
   raw.map((c) => ({
     id: c.id,
-    body: c.body ?? '',
+    body: splitCid(c.body).body,
     author: c.user ? { login: c.user.login, avatarUrl: c.user.avatar_url } : null,
     createdAt: c.created_at,
     pending: false,
@@ -398,7 +431,7 @@ const toMilestones = (raw) =>
   raw.map((m) => ({ number: m.number, title: m.title, state: m.state, description: m.description ?? '', dueOn: m.due_on ?? null }));
 
 /** @param {any[]} raw */
-const toIssues =(raw) => raw.filter((r) => !r.pull_request).map(toIssue);
+const toIssues = (raw) => raw.filter((r) => !r.pull_request).map(toIssue);
 
 export class HttpError extends Error {
   /** @param {number} status */
@@ -430,7 +463,9 @@ function readJson(storage, key) {
 function writeJson(storage, key, value) {
   try {
     storage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     // Full or blocked storage: the app still works, it just forgets on close.
+    return false;
   }
 }

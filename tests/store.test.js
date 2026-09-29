@@ -137,6 +137,63 @@ test('a create whose answer got lost is not sent a second time', async () => {
   assert.equal(store.getState().issues.filter((i) => i.title === 'melk').length, 1);
 });
 
+test('a comment whose answer got lost is not posted a second time', async () => {
+  const server = createFakeGitHub();
+  server.addIssue();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  server.state.dropNextResponse = true;
+  store.comment(1, 'Kennisbank: https://drive.google.com/x');
+  await store.flush();
+  await store.flush();
+
+  assert.equal(server.comments.get(1)?.length, 1);
+  assert.equal(store.getState().pending, 0);
+  assert.deepEqual(store.comments(1).map((c) => c.body), ['Kennisbank: https://drive.google.com/x']);
+});
+
+test('a blocker whose answer got lost is not reported as refused', async () => {
+  const server = createFakeGitHub();
+  server.addIssue();
+  server.addIssue();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  server.state.dropNextResponse = true;
+  store.addBlockedBy(2, 1);
+  store.setParent(1, 2);
+  await store.flush();
+  await store.flush();
+
+  assert.deepEqual(server.blockersOf(2), [1]);
+  assert.equal(store.getState().pending, 0);
+  assert.deepEqual(store.getState().failed, []);
+});
+
+test('queued changes wait for the issues to load instead of being refused', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ title: 'oud' });
+  const storage = memoryStorage();
+  const first = setup({ server, storage }).store;
+  await first.refresh();
+  server.state.offline = true;
+  first.update(1, { title: 'nieuw' });
+  await first.flush();
+  storage.removeItem('nexus.cache'); // say, dropped to make room
+
+  const { store } = setup({ server, storage });
+  await store.flush();
+  assert.equal(store.getState().pending, 1);
+  assert.deepEqual(store.getState().failed, []);
+
+  server.state.offline = false;
+  await store.refresh();
+  await store.flush();
+  assert.equal(server.byNumber(1).title, 'nieuw');
+  assert.deepEqual(store.getState().failed, []);
+});
+
 test('changes to an issue created offline follow it once it exists', async () => {
   const server = createFakeGitHub();
   const { store } = setup({ server });
@@ -322,8 +379,11 @@ test('comments load on request, and new ones show before they are sent', async (
   ]);
   assert.equal(issue(store, 1)?.comments, 1);
   await store.flush();
-  assert.deepEqual(server.comments.get(1)?.map((c) => c.body), ['eerste', 'Kennisbank: https://drive.google.com/x']);
-  assert.deepEqual(store.comments(1).map((c) => c.pending), [false, false]);
+  assert.equal(server.comments.get(1)?.length, 2);
+  assert.deepEqual(store.comments(1).map((c) => [c.body, c.pending]), [
+    ['eerste', false],
+    ['Kennisbank: https://drive.google.com/x', false],
+  ]);
 });
 
 test('an expired token keeps queued changes and reports the expiry', async () => {

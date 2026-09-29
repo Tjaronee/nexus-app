@@ -207,6 +207,7 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
       if (rest === '/dependencies/blocked_by' && m === 'POST') {
         const blocker = byId(body.issue_id);
         if (!blocker) return reply(422, { message: 'Validation Failed' });
+        if (blockedBy.get(issue.number)?.has(blocker.number)) return reply(422, { message: 'Dependency already exists' });
         blockedBy.set(issue.number, new Set([...(blockedBy.get(issue.number) ?? []), blocker.number]));
         touch(issue);
         return reply(201, present(blocker));
@@ -222,6 +223,7 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
       if (rest === '/sub_issues' && m === 'POST') {
         const child = byId(body.sub_issue_id);
         if (!child) return reply(422, { message: 'Validation Failed' });
+        if (parents.get(child.number) === issue.number) return reply(422, { message: 'Already a sub-issue' });
         if (parents.has(child.number) && !body.replace_parent) return reply(422, { message: 'Already has a parent' });
         parents.set(child.number, issue.number);
         touch(issue);

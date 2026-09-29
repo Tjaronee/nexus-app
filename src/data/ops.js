@@ -4,13 +4,13 @@
  * straight away; `send` makes it happen on GitHub.
  */
 
-import { withCid } from './model.js';
+import { withCid, matchesRef } from './model.js';
 
 /** @typedef {import('./model.js').Issue} Issue */
 /** @typedef {import('./model.js').IssueRef} IssueRef */
 /**
  * @typedef {{
- *   type: 'create', cid: string, at: string, attempted?: boolean,
+ *   type: 'create', cid: string, at: string,
  *   title: string, body: string, labels: string[], assignees: string[], milestone: number | null,
  * }} CreateOp
  */
@@ -24,13 +24,14 @@ import { withCid } from './model.js';
  *   | { type: 'milestone', ref: IssueRef, milestone: MilestoneRef | null }
  *   | { type: 'blockedBy', ref: IssueRef, blocker: IssueRef, add: boolean }
  *   | { type: 'parent', ref: IssueRef, parent: IssueRef | null, previous: IssueRef | null }
- *   | { type: 'comment', ref: IssueRef, body: string, at: string }
+ *   | { type: 'comment', ref: IssueRef, body: string, at: string, cid: string }
  * )} Op
  */
 /** @typedef {import('./model.js').StateReason} StateReason */
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').MilestoneRef} MilestoneRef */
-/** @typedef {Op & { seq: number }} QueuedOp */
+/** An operation waiting to be sent; `attempted` once a try may have reached GitHub. */
+/** @typedef {Op & { attempted?: boolean }} QueuedOp */
 
 /**
  * Shows an operation in a list of issues, without touching GitHub.
@@ -80,7 +81,7 @@ export function apply(issues, op) {
       const parentNumber = op.parent === null ? null : (find(issues, op.parent)?.number ?? null);
       let next = patch(issues, op.ref, (i) => ({ ...i, parent: parentNumber }));
       if (op.previous !== null) next = patch(next, op.previous, (p) => withSubIssues(p, -1));
-      if (op.parent !== null) next = patch(next, op.parent, (p) => withSubIssues(p, +1));
+      if (parentNumber !== null) next = patch(next, parentNumber, (p) => withSubIssues(p, +1));
       return next;
     }
     case 'comment':
@@ -95,7 +96,7 @@ const withSubIssues = (parent, delta) => ({
 });
 
 /** @param {Issue[]} issues @param {IssueRef} ref */
-const find = (issues, ref) => issues.find((i) => i.ref === ref || i.cid === ref);
+const find = (issues, ref) => issues.find((i) => matchesRef(i, ref));
 
 /** How a not-yet-created issue looks until GitHub has it. @param {CreateOp} op @returns {Issue} */
 function placeholder(op) {
@@ -128,7 +129,7 @@ function placeholder(op) {
  * @param {(issue: Issue) => Issue} change
  */
 function patch(issues, ref, change) {
-  return issues.map((i) => (i.ref === ref || i.cid === ref ? change(i) : i));
+  return issues.map((i) => (matchesRef(i, ref) ? change(i) : i));
 }
 
 /**
@@ -142,7 +143,7 @@ function patch(issues, ref, change) {
 /**
  * Sends an operation to GitHub. Resolves with the updated issue from GitHub's
  * answer when there is one; rejects with a Response when GitHub refuses.
- * @param {Op} op
+ * @param {QueuedOp} op
  * @param {SendContext} ctx
  * @returns {Promise<any | null>}
  */
@@ -199,7 +200,8 @@ export async function send(op, ctx) {
       const issue = target(ctx, op.ref);
       const blocker = target(ctx, op.blocker);
       const path = `/issues/${issue.number}/dependencies/blocked_by`;
-      if (op.add) await call(ctx, 'POST', path, { issue_id: blocker.id });
+      // After a lost answer, "already exists" means the first try worked.
+      if (op.add) await call(ctx, 'POST', path, { issue_id: blocker.id }, op.attempted ? [422] : []);
       else await call(ctx, 'DELETE', `${path}/${blocker.id}`, undefined, [404]);
       return null;
     }
@@ -207,7 +209,8 @@ export async function send(op, ctx) {
       const child = target(ctx, op.ref);
       if (op.parent !== null) {
         const parent = target(ctx, op.parent);
-        await call(ctx, 'POST', `/issues/${parent.number}/sub_issues`, { sub_issue_id: child.id, replace_parent: true });
+        const body = { sub_issue_id: child.id, replace_parent: true };
+        await call(ctx, 'POST', `/issues/${parent.number}/sub_issues`, body, op.attempted ? [422] : []);
       } else if (op.previous !== null) {
         const previous = target(ctx, op.previous);
         await call(ctx, 'DELETE', `/issues/${previous.number}/sub_issue`, { sub_issue_id: child.id }, [404]);
@@ -216,7 +219,14 @@ export async function send(op, ctx) {
     }
     case 'comment': {
       const issue = target(ctx, op.ref);
-      await call(ctx, 'POST', `/issues/${issue.number}/comments`, { body: op.body });
+      const path = `/issues/${issue.number}/comments`;
+      // Like creates: an earlier try may have been posted without us hearing back.
+      if (op.attempted) {
+        const res = await call(ctx, 'GET', `${path}?per_page=100&since=${encodeURIComponent(op.at)}`);
+        const posted = /** @type {any[]} */ (await res.json());
+        if (posted.some((c) => c.body?.includes(`<!-- cid:${op.cid} -->`))) return null;
+      }
+      await call(ctx, 'POST', path, { body: withCid(op.body, op.cid) });
       return null;
     }
   }

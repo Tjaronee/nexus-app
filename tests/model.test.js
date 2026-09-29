@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toIssue, kindOf, prioOf, urgentieOf } from '../src/data/model.js';
+import { toIssue, kindOf, prioOf, urgentieOf, blocking } from '../src/data/model.js';
 
 /** A GitHub REST issue as the list endpoint returns it. @param {Record<string, any>} [over] */
 function raw(over = {}) {
@@ -64,6 +64,14 @@ test('maps prio and urgency labels to Dutch values', () => {
   const high = toIssue(raw());
   assert.equal(prioOf(high), 'hoog');
   assert.equal(urgentieOf(high), 'nu');
+});
+
+test('lists the open issues a Taak is blocking', () => {
+  const busje = { ...toIssue(raw({ number: 27 })), blockedBy: [] };
+  const verhuizen = { ...toIssue(raw({ number: 30 })), blockedBy: [27, 28] };
+  const dozen = { ...toIssue(raw({ number: 28 })), blockedBy: [] };
+  assert.deepEqual(blocking([busje, verhuizen, dozen], busje).map((i) => i.number), [30]);
+  assert.deepEqual(blocking([busje, verhuizen, dozen], verhuizen), []);
 });
 
 test('unlabelled issues count as middel / binnenkort', () => {

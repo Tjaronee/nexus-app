@@ -89,7 +89,7 @@ function renderSync() {
   const indicator = $('sync');
   const pending = state?.pending ?? 0;
   const parts = [];
-  if (state && !state.online) parts.push('offline');
+  if (state && !state.online) parts.push('geen verbinding');
   if (pending > 0) parts.push(pending === 1 ? '1 wijziging wacht' : `${pending} wijzigingen wachten`);
   indicator.textContent = parts.join(' · ');
   indicator.hidden = parts.length === 0;
