@@ -5,6 +5,7 @@ import { createGitHub } from './github.js';
 import { createSession } from './session.js';
 import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
+import { mountMijlpalen } from './mijlpalen-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
 import { mountDetail } from './detail-view.js';
 import { mountClosing } from './closing-view.js';
@@ -41,6 +42,7 @@ const kennisbank = mountKennisbank({ getStore: () => store });
 const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addFile });
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close });
+const mijlpalen = mountMijlpalen({ onOpen: detail.open, onClose: closing.close });
 mountQuickAdd({ getStore: () => store, getMe });
 
 session.subscribe(render);
@@ -90,16 +92,18 @@ function connect() {
     const github = createGitHub({ token: current.token, onUnauthorized: expireSession });
     store = createStore({ github, storage });
     store.subscribe(renderSync);
-    store.subscribe(renderTaken);
+    store.subscribe(renderLists);
     store.subscribe(detail.render);
     stopSync = store.start();
   }
   renderSync();
-  renderTaken();
+  renderLists();
 }
 
-function renderTaken() {
-  taken.update(store?.getState().issues ?? [], getMe());
+function renderLists() {
+  const state = store?.getState();
+  taken.update(state?.issues ?? [], getMe());
+  mijlpalen.update(state?.issues ?? [], state?.milestones ?? []);
 }
 
 /** The small indicator of waiting changes, and a notice for refused ones. */

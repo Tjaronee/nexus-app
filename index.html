@@ -85,7 +85,40 @@
       <p class="placeholder">Hier komen de Boodschappen.</p>
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" aria-labelledby="tab-mijlpalen" hidden>
-      <p class="placeholder">Hier komen de Mijlpalen.</p>
+      <div id="m-overview">
+        <ul id="m-open" class="cards"></ul>
+        <p id="m-empty" class="placeholder" hidden>Geen open Mijlpalen.</p>
+        <section id="m-zonder" class="group" aria-labelledby="m-zonder-title" hidden>
+          <h2 id="m-zonder-title">Zonder mijlpaal</h2>
+          <ul id="m-zonder-list" class="cards"></ul>
+        </section>
+        <details id="m-closed" class="group" hidden>
+          <summary>Afgesloten Mijlpalen (<span id="m-closed-count"></span>)</summary>
+          <ul id="m-closed-list" class="cards"></ul>
+        </details>
+      </div>
+      <div id="m-screen" hidden>
+        <div class="crumbbar">
+          <button id="m-back" type="button" class="back" aria-label="Terug">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+          </button>
+          <h2 id="m-title"></h2>
+        </div>
+        <p id="m-screen-missing" class="placeholder" hidden></p>
+        <div id="m-screen-body">
+          <div id="m-progress" class="progress"></div>
+          <p id="m-description" class="muted" hidden></p>
+          <section id="m-epics-section" class="group" aria-labelledby="m-epics-title">
+            <h3 id="m-epics-title">Epics</h3>
+            <ul id="m-epics" class="cards"></ul>
+          </section>
+          <section id="m-taken-section" class="group" aria-labelledby="m-taken-title">
+            <h3 id="m-taken-title">Taken</h3>
+            <ul id="m-taken" class="taken"></ul>
+          </section>
+          <p id="m-screen-empty" class="placeholder" hidden></p>
+        </div>
+      </div>
     </section>
 
     <div id="snackbar" class="snackbar" role="status" hidden>
