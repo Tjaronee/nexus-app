@@ -1,0 +1,14 @@
+{
+  "name": "nexus-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc -p .",
+    "icons": "node tools/make-icons.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^5.9.3"
+  }
+}

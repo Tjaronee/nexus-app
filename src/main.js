@@ -1,0 +1,158 @@
+import { validateToken } from './auth.js';
+import { createSession } from './session.js';
+import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
+
+/** @typedef {import('./auth.js').TokenProblem} TokenProblem */
+/** @typedef {import('./tabs.js').TabId} TabId */
+
+/** @type {Record<TokenProblem, string>} */
+const TOKEN_PROBLEMS = {
+  empty: 'Plak eerst je token.',
+  invalid: 'Dit token werkt niet: het is ongeldig of verlopen. Maak een nieuw token aan.',
+  'no-access':
+    'Dit token heeft geen toegang tot de issues van Tjaronee/Nexus. Kies bij Repository access alleen Tjaronee/Nexus en zet Issues op Read and write.',
+  network: 'Geen verbinding met GitHub. Probeer het opnieuw zodra je online bent.',
+  error: 'GitHub gaf een onverwacht antwoord. Probeer het later opnieuw.',
+};
+
+const EXPIRED_NOTICE =
+  'Je token werkt niet meer (verlopen of ingetrokken). Plak een nieuw token. Wijzigingen die nog wachten gaan niet verloren.';
+
+/** @param {string} id */
+const $ = (id) => /** @type {HTMLElement} */ (document.getElementById(id));
+
+const storage = safeLocalStorage();
+const session = createSession(storage);
+/** Set when the token stops working, so the token screen can explain why. */
+let expired = false;
+
+session.subscribe(render);
+render();
+revalidateInBackground();
+setUpLogin();
+setUpTabs();
+setUpSettings();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+function render() {
+  const current = session.current();
+  $('login').hidden = current !== null;
+  $('app').hidden = current === null;
+  if (current) {
+    for (const id of ['avatar', 'settings-avatar']) {
+      /** @type {HTMLImageElement} */ ($(id)).src = current.user.avatarUrl;
+    }
+    $('settings-login').textContent = current.user.login;
+  } else {
+    const notice = $('login-notice');
+    notice.textContent = EXPIRED_NOTICE;
+    notice.hidden = !expired;
+    const settings = /** @type {HTMLDialogElement} */ ($('settings'));
+    if (settings.open) settings.close();
+  }
+}
+
+/** Token is revoked or has expired: back to the token screen, keep everything else. */
+function expireSession() {
+  expired = true;
+  session.signOut();
+}
+
+/**
+ * Re-check a remembered token when the app opens, so an expired token sends
+ * us back to the token screen. Offline or GitHub hiccups are ignored.
+ */
+async function revalidateInBackground() {
+  const current = session.current();
+  if (!current) return;
+  const check = await validateToken(current.token);
+  if (session.current()?.token !== current.token) return;
+  if (check.ok) session.updateUser(check.user);
+  else if (check.reason === 'invalid' || check.reason === 'no-access') expireSession();
+}
+
+function setUpLogin() {
+  const form = /** @type {HTMLFormElement} */ ($('login-form'));
+  const input = /** @type {HTMLInputElement} */ ($('token'));
+  const error = $('login-error');
+  const submit = /** @type {HTMLButtonElement} */ (form.querySelector('button[type="submit"]'));
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    error.hidden = true;
+    submit.disabled = true;
+    submit.textContent = 'Controleren…';
+    const token = input.value.trim();
+    const check = await validateToken(token);
+    submit.disabled = false;
+    submit.textContent = 'Inloggen';
+    if (check.ok) {
+      input.value = '';
+      expired = false;
+      session.signIn(token, check.user);
+    } else {
+      error.textContent = TOKEN_PROBLEMS[check.reason];
+      error.hidden = false;
+      input.focus();
+    }
+  });
+}
+
+function setUpTabs() {
+  /** @param {TabId} id */
+  function show(id) {
+    for (const tab of TABS) {
+      const selected = tab.id === id;
+      $(`tab-${tab.id}`).setAttribute('aria-selected', String(selected));
+      $(`tab-${tab.id}`).tabIndex = selected ? 0 : -1;
+      $(`panel-${tab.id}`).hidden = !selected;
+      if (selected) {
+        $('tab-title').textContent = tab.label;
+        document.title = `${tab.label} · Nexus`;
+      }
+    }
+    try {
+      storage.setItem(LAST_TAB_KEY, id);
+    } catch {
+      // Not remembered; the app opens on Taken next time.
+    }
+  }
+
+  for (const tab of TABS) {
+    $(`tab-${tab.id}`).addEventListener('click', () => show(tab.id));
+  }
+
+  let last = null;
+  try {
+    last = storage.getItem(LAST_TAB_KEY);
+  } catch {
+    // Fall back to the default tab.
+  }
+  show(initialTab(last));
+}
+
+function setUpSettings() {
+  const dialog = /** @type {HTMLDialogElement} */ ($('settings'));
+  $('open-settings').addEventListener('click', () => dialog.showModal());
+  $('sign-out').addEventListener('click', () => {
+    if (!confirm('Afmelden en je token van dit apparaat verwijderen?')) return;
+    expired = false;
+    session.signOut();
+  });
+}
+
+/** localStorage can be missing or throw (private mode, blocked site data). */
+function safeLocalStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return /** @type {Storage} */ (/** @type {unknown} */ ({
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    }));
+  }
+}

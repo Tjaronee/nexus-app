@@ -28,6 +28,16 @@ Paste it into the app once. The phone remembers it.
 
 Every Boodschap is an issue in Nexus, so by default GitHub may notify or email the other partner for each new item. To avoid that, set your watch settings for `Tjaronee/Nexus` to "Participating and @mentions".
 
+## Development
+
+Plain HTML, CSS and ES modules with no build step: GitHub Pages serves `main` as-is. Node is only used for checks.
+
+- `npm test`: unit tests (`node --test`)
+- `npm run typecheck`: TypeScript over the JSDoc types
+- `npm run icons`: redraw the PNG icons
+
+The service worker ([sw.js](sw.js)) caches the app shell. When you add a file to the shell, add it to `SHELL` there and bump `VERSION`.
+
 ## Fallback: the GitHub website
 
 If the app is down, the data stays usable on github.com. The shopping list is `is:open label:boodschappen` (add `label:"waar: praxis"` to filter by Plek), and the task list is `is:open -label:boodschappen`.

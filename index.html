@@ -2,15 +2,91 @@
 <html lang="nl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Nexus</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; text-align: center; }
-  </style>
+  <meta name="theme-color" content="#2f6f5e" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16201d" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Nexus">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="src/styles.css">
+  <script type="module" src="src/main.js"></script>
 </head>
 <body>
-  <h1>Nexus</h1>
-  <p>Binnenkort beschikbaar.</p>
+  <noscript><p class="noscript">Nexus heeft JavaScript nodig.</p></noscript>
+
+  <main id="login" class="login" hidden>
+    <img class="login__icon" src="icons/icon-192.png" alt="" width="64" height="64">
+    <h1>Nexus</h1>
+    <p id="login-notice" class="notice" role="status" hidden></p>
+    <form id="login-form" novalidate>
+      <label for="token">Plak je GitHub-token</label>
+      <input id="token" name="token" type="password" autocomplete="off" autocapitalize="off"
+             spellcheck="false" placeholder="github_pat_…" required>
+      <p id="login-error" class="error" role="alert" hidden></p>
+      <button type="submit" class="primary">Inloggen</button>
+    </form>
+    <details class="howto">
+      <summary>Hoe maak ik een token?</summary>
+      <ol>
+        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">een nieuw fine-grained token</a> op GitHub.</li>
+        <li>Kies bij <b>Repository access</b>: <i>Only select repositories</i> → <b>Tjaronee/Nexus</b>.</li>
+        <li>Zet bij <b>Permissions</b> → <b>Issues</b> op <i>Read and write</i>. Verder niets.</li>
+        <li>Maak het token aan, kopieer het en plak het hierboven.</li>
+      </ol>
+      <p>Je token blijft alleen op dit apparaat bewaard.</p>
+    </details>
+  </main>
+
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <h1 id="tab-title">Taken</h1>
+      <button id="open-settings" class="avatar-button" type="button" aria-label="Instellingen">
+        <img id="avatar" alt="" width="32" height="32">
+      </button>
+    </header>
+
+    <section id="panel-taken" class="panel" role="tabpanel" aria-labelledby="tab-taken">
+      <p class="placeholder">Hier komen de Taken.</p>
+    </section>
+    <section id="panel-boodschappen" class="panel" role="tabpanel" aria-labelledby="tab-boodschappen" hidden>
+      <p class="placeholder">Hier komen de Boodschappen.</p>
+    </section>
+    <section id="panel-mijlpalen" class="panel" role="tabpanel" aria-labelledby="tab-mijlpalen" hidden>
+      <p class="placeholder">Hier komen de Mijlpalen.</p>
+    </section>
+
+    <nav class="tabbar" role="tablist" aria-label="Onderdelen">
+      <button id="tab-taken" role="tab" type="button" data-tab="taken" aria-controls="panel-taken">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg>
+        <span>Taken</span>
+      </button>
+      <button id="tab-boodschappen" role="tab" type="button" data-tab="boodschappen" aria-controls="panel-boodschappen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2l2.2 10h10.3L20 8H6.3"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg>
+        <span>Boodschappen</span>
+      </button>
+      <button id="tab-mijlpalen" role="tab" type="button" data-tab="mijlpalen" aria-controls="panel-mijlpalen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
+        <span>Mijlpalen</span>
+      </button>
+    </nav>
+
+    <dialog id="settings" class="sheet" aria-labelledby="settings-title">
+      <h2 id="settings-title">Instellingen</h2>
+      <div class="whoami">
+        <img id="settings-avatar" alt="" width="48" height="48">
+        <div>
+          <div class="muted">Ingelogd als</div>
+          <div id="settings-login" class="login-name"></div>
+        </div>
+      </div>
+      <button id="sign-out" type="button" class="danger">Afmelden</button>
+      <p class="muted small">Afmelden verwijdert je token van dit apparaat.</p>
+      <form method="dialog"><button class="secondary">Sluiten</button></form>
+    </dialog>
+  </div>
 </body>
 </html>
