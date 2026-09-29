@@ -10,7 +10,7 @@ import { $, el } from './dom.js';
  * The Taken list in #panel-taken. The controls are static in index.html, so
  * typing in the search box never loses focus; only the lists are redrawn.
  *
- * @param {{ storage: Storage, onOpen: (ref: IssueRef) => void, onClose: (ref: IssueRef, title: string) => void }} deps
+ * @param {{ storage: Storage, onOpen: (ref: IssueRef) => void, onClose: (issue: Issue) => void }} deps
  *   `onOpen` is called when a Taak, or the Taak blocking it, is tapped;
  *   `onClose` when its checkbox is ticked.
  */
@@ -91,7 +91,7 @@ function toggle(list, value) {
 /**
  * @param {Row} row
  * @param {(ref: IssueRef) => void} onOpen
- * @param {(ref: IssueRef, title: string) => void} onClose
+ * @param {(issue: Issue) => void} onClose
  */
 function rowElement(row, onOpen, onClose) {
   const li = el('li', 'taak');
@@ -101,10 +101,13 @@ function rowElement(row, onOpen, onClose) {
     if (!(/** @type {Element} */ (event.target).closest('.link, .check'))) onOpen(row.issue.ref);
   });
   const head = el('div', 'taak__head');
+  // Ticking closes the Taak and the row goes, so it never shows as ticked.
   const check = /** @type {HTMLButtonElement} */ (el('button', 'check'));
   check.type = 'button';
+  check.setAttribute('role', 'checkbox');
+  check.setAttribute('aria-checked', 'false');
   check.setAttribute('aria-label', `${row.issue.title} afronden`);
-  check.addEventListener('click', () => onClose(row.issue.ref, row.issue.title));
+  check.addEventListener('click', () => onClose(row.issue));
   head.append(check);
   const titleButton = /** @type {HTMLButtonElement} */ (el('button', 'taak__title', row.issue.title));
   titleButton.type = 'button';

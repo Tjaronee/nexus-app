@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { kennisbankComment, addKennisbankLink } from '../src/closing.js';
+import { kennisbankComment, addKennisbankLink } from '../src/kennisbank.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -14,10 +14,10 @@ function setup() {
   return { server, store };
 }
 
-const DRIVE = 'https://drive.google.com/file/d/abc123/view?usp=sharing';
+const KENNISBANK_LINK = 'https://drive.google.com/file/d/abc123/view?usp=sharing';
 
 test('a pasted link becomes a Kennisbank comment', () => {
-  assert.equal(kennisbankComment(`  ${DRIVE}\n`), `📎 Kennisbank: ${DRIVE}`);
+  assert.equal(kennisbankComment(`  ${KENNISBANK_LINK}\n`), `📎 Kennisbank: ${KENNISBANK_LINK}`);
 });
 
 test('anything that is not a web link is refused', () => {
@@ -47,13 +47,13 @@ test('a Kennisbank link ends up as a comment on the issue', async () => {
   await store.refresh();
   store.close(taak.number, 'completed');
 
-  assert.equal(addKennisbankLink(store, taak.number, DRIVE), true);
+  assert.equal(addKennisbankLink(store, taak.number, KENNISBANK_LINK), true);
   await store.flush();
 
   assert.equal(server.byNumber(taak.number).state, 'closed');
   assert.deepEqual(
     server.comments.get(taak.number)?.map((c) => c.body.replace(/\s*<!-- cid:.* -->$/, '')),
-    [`📎 Kennisbank: ${DRIVE}`],
+    [`📎 Kennisbank: ${KENNISBANK_LINK}`],
   );
 });
 
