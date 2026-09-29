@@ -140,7 +140,81 @@
       </form>
     </dialog>
 
-    <dialog id="settings" class="sheet" aria-labelledby="settings-title">
+    <dialog id="detail" class="page" aria-labelledby="d-number">
+      <header class="page__bar">
+        <button id="d-back" type="button" class="back" aria-label="Terug">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+        </button>
+        <h2 id="d-number" class="number"></h2>
+        <button id="d-copy" type="button" class="copy">Kopieer</button>
+      </header>
+      <div id="d-missing" class="placeholder" hidden>Deze Taak bestaat niet meer.</div>
+      <div id="d-content" class="page__body">
+        <div id="d-closed" class="notice closed" hidden>
+          <span>Deze Taak is gesloten.</span>
+          <button id="d-reopen" type="button">Heropenen</button>
+        </div>
+        <textarea id="d-title" class="title-field" rows="1" aria-label="Titel"></textarea>
+        <div class="chips" role="group" aria-label="Prio en Urgentie">
+          <button type="button" class="chip" data-d-prio="laag" aria-label="Prio laag">laag</button>
+          <button type="button" class="chip" data-d-prio="middel" aria-label="Prio middel">middel</button>
+          <button type="button" class="chip" data-d-prio="hoog" aria-label="Prio hoog">hoog</button>
+          <span class="chips__gap" aria-hidden="true"></span>
+          <button type="button" class="chip" data-d-urgentie="nu" aria-label="Urgentie nu">nu</button>
+          <button type="button" class="chip" data-d-urgentie="binnenkort" aria-label="Urgentie binnenkort">binnenkort</button>
+          <button type="button" class="chip" data-d-urgentie="ooit" aria-label="Urgentie ooit">ooit</button>
+        </div>
+        <div class="fields">
+          <label for="d-epic">Epic</label>
+          <select id="d-epic" class="field"></select>
+          <label for="d-mijlpaal">Mijlpaal</label>
+          <select id="d-mijlpaal" class="field"></select>
+          <fieldset>
+            <legend>Toegewezen</legend>
+            <div id="d-people" class="people"></div>
+          </fieldset>
+        </div>
+
+        <section class="section" aria-labelledby="d-body-title">
+          <div class="section__head">
+            <h3 id="d-body-title">Beschrijving</h3>
+            <button id="d-edit-body" type="button" class="link">Bewerken</button>
+          </div>
+          <div id="d-body" class="markdown"></div>
+          <div id="d-body-editor" class="editor" hidden>
+            <textarea id="d-body-text" class="field" rows="8" aria-label="Beschrijving"></textarea>
+            <div class="actions">
+              <button id="d-body-save" type="button" class="primary">Opslaan</button>
+              <button id="d-body-cancel" type="button" class="secondary">Annuleren</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="d-blocked-title">
+          <h3 id="d-blocked-title">Geblokkeerd door</h3>
+          <ul id="d-blocked" class="refs"></ul>
+          <button id="d-add-blocker" type="button" class="link">+ geblokkeerd door…</button>
+          <div id="d-blocker-search" hidden>
+            <input id="d-blocker-query" class="field" type="search" placeholder="Zoek een open Taak"
+                   aria-label="Zoek een open Taak" autocomplete="off">
+            <ul id="d-blocker-options" class="options"></ul>
+          </div>
+        </section>
+
+        <section id="d-blocking-section" class="section" aria-labelledby="d-blocking-title" hidden>
+          <h3 id="d-blocking-title">Blokkeert</h3>
+          <ul id="d-blocking" class="refs"></ul>
+        </section>
+
+        <section class="section" aria-labelledby="d-comments-title">
+          <h3 id="d-comments-title">Reacties</h3>
+          <ol id="d-comments" class="comments"></ol>
+          <p id="d-no-comments" class="muted small" hidden>Nog geen reacties.</p>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="settings" class="sheet"aria-labelledby="settings-title">
       <h2 id="settings-title">Instellingen</h2>
       <div class="whoami">
         <img id="settings-avatar" alt="" width="48" height="48">

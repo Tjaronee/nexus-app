@@ -1,19 +1,17 @@
 import { takenList, loadFilters, saveFilters, isFiltered } from './taken.js';
+import { $, el } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./taken.js').Filters} Filters */
 /** @typedef {import('./taken.js').Row} Row */
 
-/** @param {string} id */
-const $ = (id) => /** @type {HTMLElement} */ (document.getElementById(id));
-
 /**
  * The Taken list in #panel-taken. The controls are static in index.html, so
  * typing in the search box never loses focus; only the lists are redrawn.
  *
  * @param {{ storage: Storage, onOpen: (ref: IssueRef) => void }} deps
- *   `onOpen` is called when a blocking Taak is tapped.
+ *   `onOpen` is called when a Taak, or the Taak blocking it, is tapped.
  */
 export function mountTaken({ storage, onOpen }) {
   let filters = loadFilters(storage);
@@ -78,19 +76,6 @@ export function mountTaken({ storage, onOpen }) {
       me = nextMe;
       render();
     },
-    /**
-     * Scrolls to a Taak's row and highlights it. False when it isn't in the list.
-     * @param {IssueRef} ref
-     */
-    reveal(ref) {
-      const row = /** @type {HTMLElement | null} */ (panel.querySelector(`[data-ref="${CSS.escape(String(ref))}"]`));
-      if (!row) return false;
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      row.classList.remove('flash');
-      void row.offsetWidth; // Restart the animation when tapped twice.
-      row.classList.add('flash');
-      return true;
-    },
   };
 }
 
@@ -107,8 +92,14 @@ function rowElement(row, onOpen) {
   const li = el('li', 'taak');
   li.dataset.ref = String(row.issue.ref);
 
+  // The whole row opens the Taak; the title is the button for keyboards and screen readers.
+  li.addEventListener('click', (event) => {
+    if (!(/** @type {Element} */ (event.target).closest('.link'))) onOpen(row.issue.ref);
+  });
   const head = el('div', 'taak__head');
-  head.append(el('span', 'taak__title', row.issue.title));
+  const open = /** @type {HTMLButtonElement} */ (el('button', 'taak__title', row.issue.title));
+  open.type = 'button';
+  head.append(open);
   if (row.issue.assignees.length > 0) {
     const avatars = el('span', 'taak__avatars');
     for (const person of row.issue.assignees) {
@@ -147,12 +138,4 @@ function badge(kind, text, label) {
   const span = el('span', `badge badge--${kind}`, text);
   span.setAttribute('aria-label', label);
   return span;
-}
-
-/** @param {string} tag @param {string} [className] @param {string} [text] */
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
 }

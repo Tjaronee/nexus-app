@@ -1,11 +1,9 @@
 import { saveTaak, choices, DEFAULTS } from './quick-add.js';
+import { $, fillSelect } from './dom.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
 /** @typedef {import('./quick-add.js').Store} Store */
 /** @typedef {ReturnType<typeof choices>} Choices */
-
-/** @param {string} id */
-const $ = (id) => /** @type {HTMLElement} */ (document.getElementById(id));
 
 /**
  * The + button on the Taken tab and the bottom sheet it opens.
@@ -96,9 +94,9 @@ export function mountQuickAdd({ getStore, getMe }) {
     title.value = '';
     body.value = '';
     error.hidden = true;
-    fill(epic, offered.epics, 'Geen Epic');
-    fill(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
-    fill(blocked, offered.blockers, null);
+    fillSelect(epic, offered.epics, 'Geen Epic');
+    fillSelect(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
+    fillSelect(blocked, offered.blockers, null);
     people.replaceChildren(
       ...offered.people.map((login) => {
         const label = document.createElement('label');
@@ -118,16 +116,4 @@ export function mountQuickAdd({ getStore, getMe }) {
       chip.setAttribute('aria-pressed', String(qaPrio ? qaPrio === prio : qaUrgentie === urgentie));
     }
   }
-}
-
-/**
- * Replaces a select's options; each value is the index into `items`.
- * @param {HTMLSelectElement} select
- * @param {{ title: string }[]} items
- * @param {string | null} none label of the empty choice, if there is one
- */
-function fill(select, items, none) {
-  const options = items.map((item, i) => new Option(item.title, String(i)));
-  if (none !== null) options.unshift(new Option(none, ''));
-  select.replaceChildren(...options);
 }
