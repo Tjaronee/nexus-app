@@ -340,6 +340,37 @@ button {
 .blocked { margin-top: 1.75rem; opacity: 0.6; }
 .blocked h2 { margin: 0; font-size: 0.9375rem; color: var(--muted); }
 
+/* Mijlpalen */
+
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.card {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+}
+.card--done { opacity: 0.6; }
+.card__head { display: flex; align-items: baseline; gap: 0.75rem; }
+.card__title { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+.card__count { flex: none; font-size: 0.8125rem; }
+
+.bar { display: block; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.bar__fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+
+.group { margin-top: 1.5rem; }
+.group h2, .group h3, .group summary { margin: 0 0 0.5rem; font-size: 0.9375rem; color: var(--muted); }
+.group summary { cursor: pointer; font-weight: 600; }
+.group .taken { margin-top: 0; }
+
+.crumbbar { display: flex; align-items: center; gap: 0.25rem; margin: -0.5rem 0 0.5rem -0.75rem; }
+.crumbbar h2 { margin: 0; font-size: 1.25rem; overflow-wrap: anywhere; }
+.progress { display: grid; gap: 0.25rem; }
+#m-description { margin: 0.75rem 0 0; white-space: pre-line; }
+
 /* Quick add */
 
 #panel-taken { padding-bottom: 6rem; } /* Room for the + button under the last row. */

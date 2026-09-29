@@ -89,11 +89,12 @@ function toggle(list, value) {
 }
 
 /**
+ * One Taak as a list row.
  * @param {Row} row
  * @param {(ref: IssueRef) => void} onOpen
  * @param {(issue: Issue) => void} onClose
  */
-function rowElement(row, onOpen, onClose) {
+export function rowElement(row, onOpen, onClose) {
   const li = el('li', 'taak');
 
   // The whole row opens the Taak; the title is the button for keyboards and screen readers.

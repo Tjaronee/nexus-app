@@ -58,6 +58,19 @@ export function takenList(issues, { filters, search, me }) {
   };
 }
 
+/**
+ * These Taken as list rows, sorted like the Taken list, with the Geblokkeerd
+ * ones last.
+ * @param {Issue[]} issues all issues, to find Epics and blockers in
+ * @param {Issue[]} taken
+ * @returns {Row[]}
+ */
+export function takenRows(issues, taken) {
+  const open = issues.filter((i) => i.state === 'open');
+  const rows = taken.map((issue) => toRow(issue, issues, open)).sort(byUrgentieThenPrio);
+  return [...rows.filter((r) => r.waitingFor.length === 0), ...rows.filter((r) => r.waitingFor.length > 0)];
+}
+
 /** @param {Issue} issue @param {Issue[]} issues @param {Issue[]} open @returns {Row} */
 function toRow(issue, issues, open) {
   const epic = issue.parent === null ? undefined : issues.find((i) => i.number === issue.parent);
