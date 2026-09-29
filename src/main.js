@@ -7,6 +7,7 @@ import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
 import { mountDetail } from './detail-view.js';
+import { mountClosing } from './closing-view.js';
 
 /** @typedef {import('./auth.js').TokenProblem} TokenProblem */
 /** @typedef {import('./tabs.js').TabId} TabId */
@@ -35,8 +36,9 @@ let stopSync = null;
 /** @type {string | null} */
 let connectedToken = null;
 const getMe = () => session.current()?.user.login ?? '';
-const detail = mountDetail({ getStore: () => store, getMe });
-const taken = mountTaken({ storage, onOpen: detail.open });
+const closing = mountClosing({ getStore: () => store });
+const detail = mountDetail({ getStore: () => store, getMe, onAddFile: closing.addFile });
+const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close });
 mountQuickAdd({ getStore: () => store, getMe });
 
 session.subscribe(render);
@@ -70,6 +72,7 @@ function render() {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }
+    closing.hide();
   }
 }
 

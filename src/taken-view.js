@@ -10,10 +10,11 @@ import { $, el } from './dom.js';
  * The Taken list in #panel-taken. The controls are static in index.html, so
  * typing in the search box never loses focus; only the lists are redrawn.
  *
- * @param {{ storage: Storage, onOpen: (ref: IssueRef) => void }} deps
- *   `onOpen` is called when a Taak, or the Taak blocking it, is tapped.
+ * @param {{ storage: Storage, onOpen: (ref: IssueRef) => void, onClose: (ref: IssueRef, title: string) => void }} deps
+ *   `onOpen` is called when a Taak, or the Taak blocking it, is tapped;
+ *   `onClose` when its checkbox is ticked.
  */
-export function mountTaken({ storage, onOpen }) {
+export function mountTaken({ storage, onOpen, onClose }) {
   let filters = loadFilters(storage);
   let search = '';
   /** @type {Issue[]} */
@@ -55,8 +56,8 @@ export function mountTaken({ storage, onOpen }) {
     for (const button of buttons) button.setAttribute('aria-pressed', String(pressed(button)));
 
     const { free, blocked } = takenList(issues, { filters, search, me });
-    $('taken-list').replaceChildren(...free.map((row) => rowElement(row, onOpen)));
-    $('taken-blocked-list').replaceChildren(...blocked.map((row) => rowElement(row, onOpen)));
+    $('taken-list').replaceChildren(...free.map((row) => rowElement(row, onOpen, onClose)));
+    $('taken-blocked-list').replaceChildren(...blocked.map((row) => rowElement(row, onOpen, onClose)));
     $('taken-blocked').hidden = blocked.length === 0;
 
     const empty = $('taken-empty');
@@ -87,15 +88,24 @@ function toggle(list, value) {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
-/** @param {Row} row @param {(ref: IssueRef) => void} onOpen */
-function rowElement(row, onOpen) {
+/**
+ * @param {Row} row
+ * @param {(ref: IssueRef) => void} onOpen
+ * @param {(ref: IssueRef, title: string) => void} onClose
+ */
+function rowElement(row, onOpen, onClose) {
   const li = el('li', 'taak');
 
   // The whole row opens the Taak; the title is the button for keyboards and screen readers.
   li.addEventListener('click', (event) => {
-    if (!(/** @type {Element} */ (event.target).closest('.link'))) onOpen(row.issue.ref);
+    if (!(/** @type {Element} */ (event.target).closest('.link, .check'))) onOpen(row.issue.ref);
   });
   const head = el('div', 'taak__head');
+  const check = /** @type {HTMLButtonElement} */ (el('button', 'check'));
+  check.type = 'button';
+  check.setAttribute('aria-label', `${row.issue.title} afronden`);
+  check.addEventListener('click', () => onClose(row.issue.ref, row.issue.title));
+  head.append(check);
   const titleButton = /** @type {HTMLButtonElement} */ (el('button', 'taak__title', row.issue.title));
   titleButton.type = 'button';
   head.append(titleButton);

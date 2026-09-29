@@ -503,3 +503,51 @@ select[multiple].field { padding: 0.25rem; }
 .markdown pre code { padding: 0; background: none; }
 .markdown blockquote { padding-left: 0.75rem; border-left: 3px solid var(--border); color: var(--muted); }
 .markdown h4, .markdown h5, .markdown h6 { margin: 0.75rem 0 0.25rem; }
+
+/* Closing */
+
+.check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: -1px 0.125rem 0 -0.125rem;
+  padding: 0;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  background: transparent;
+  /* A bigger tap target than it looks. */
+  box-shadow: 0 0 0 9px transparent;
+}
+.check:hover, .check:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+
+.snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 0.75rem);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  width: min(36rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  transform: translateX(-50%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+}
+.snackbar__text { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snackbar button {
+  min-height: 40px;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  filter: brightness(1.3);
+}
+@media (prefers-color-scheme: dark) {
+  .snackbar button { filter: brightness(0.6); }
+}
