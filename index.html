@@ -55,7 +55,28 @@
     </div>
 
     <section id="panel-taken" class="panel" role="tabpanel" aria-labelledby="tab-taken">
-      <p class="placeholder">Hier komen de Taken.</p>
+      <input id="taken-search" class="search" type="search" placeholder="Zoeken in Taken" aria-label="Zoeken in Taken"
+             autocomplete="off" enterkeyhint="search">
+      <div class="segmented" role="group" aria-label="Van wie">
+        <button type="button" data-wie="iedereen">Iedereen</button>
+        <button type="button" data-wie="mijn">Mijn</button>
+        <button type="button" data-wie="partner">Partner</button>
+      </div>
+      <div class="chips" role="group" aria-label="Filters op Prio en Urgentie">
+        <button type="button" class="chip" data-prio="hoog">hoog</button>
+        <button type="button" class="chip" data-prio="middel">middel</button>
+        <button type="button" class="chip" data-prio="laag">laag</button>
+        <span class="chips__gap" aria-hidden="true"></span>
+        <button type="button" class="chip" data-urgentie="nu">nu</button>
+        <button type="button" class="chip" data-urgentie="binnenkort">binnenkort</button>
+        <button type="button" class="chip" data-urgentie="ooit">ooit</button>
+      </div>
+      <ul id="taken-list" class="taken"></ul>
+      <p id="taken-empty" class="placeholder" hidden></p>
+      <section id="taken-blocked" class="blocked" aria-labelledby="taken-blocked-title" hidden>
+        <h2 id="taken-blocked-title">Geblokkeerd</h2>
+        <ul id="taken-blocked-list" class="taken"></ul>
+      </section>
     </section>
     <section id="panel-boodschappen" class="panel" role="tabpanel" aria-labelledby="tab-boodschappen" hidden>
       <p class="placeholder">Hier komen de Boodschappen.</p>

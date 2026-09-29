@@ -228,3 +228,108 @@ button {
 @media (min-width: 40rem) {
   .sheet { margin: auto; border-radius: 16px; }
 }
+
+/* Taken list */
+
+.search {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.875rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 0.625rem;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--border);
+}
+.segmented button {
+  min-height: 36px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); }
+
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0.625rem -1rem 0;
+  padding: 0 1rem 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chips__gap { flex: 0 0 0.5rem; }
+.chip {
+  flex: none;
+  min-height: 34px;
+  padding: 0 0.875rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+.taken { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
+
+.taak {
+  padding: 0.625rem 0.875rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.taak.flash { animation: flash 1.6s ease-out; }
+@keyframes flash {
+  from { box-shadow: 0 0 0 3px var(--accent); }
+  to { box-shadow: 0 0 0 3px transparent; }
+}
+.taak__head { display: flex; align-items: flex-start; gap: 0.5rem; }
+.taak__title { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+.taak__avatars { display: flex; flex: none; }
+.taak__avatars img { border-radius: 50%; background: var(--border); border: 2px solid var(--surface); }
+.taak__avatars img + img { margin-left: -8px; }
+.taak__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+}
+.taak__crumb { color: var(--muted); }
+.taak__wait { margin-top: 0.375rem; font-size: 0.875rem; }
+
+.badge {
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  line-height: 1.5rem;
+}
+.badge--prio-hoog, .badge--urgentie-nu { border-color: var(--danger); color: var(--danger); }
+.badge--prio-laag, .badge--urgentie-ooit { border-style: dashed; }
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  text-align: left;
+  text-decoration: underline;
+}
+
+.blocked { margin-top: 1.75rem; opacity: 0.6; }
+.blocked h2 { margin: 0; font-size: 0.9375rem; color: var(--muted); }
