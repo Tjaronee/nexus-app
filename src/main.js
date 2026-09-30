@@ -6,6 +6,7 @@ import { createSession } from './session.js';
 import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
 import { mountMijlpalen } from './mijlpalen-view.js';
+import { mountBoodschappen } from './boodschappen-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
 import { mountDetail } from './detail-view.js';
 import { mountClosing } from './closing-view.js';
@@ -43,6 +44,7 @@ const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addF
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close });
 const mijlpalen = mountMijlpalen({ onOpen: detail.open, onClose: closing.close });
+const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove });
 mountQuickAdd({ getStore: () => store, getMe });
 
 session.subscribe(render);
@@ -72,7 +74,7 @@ function render() {
     const notice = $('login-notice');
     notice.textContent = EXPIRED_NOTICE;
     notice.hidden = !expired;
-    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank']) {
+    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap']) {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }
@@ -104,6 +106,7 @@ function renderLists() {
   const state = store?.getState();
   taken.update(state?.issues ?? [], getMe());
   mijlpalen.update(state?.issues ?? [], state?.milestones ?? []);
+  boodschappen.render();
 }
 
 /** The small indicator of waiting changes, and a notice for refused ones. */

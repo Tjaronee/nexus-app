@@ -82,7 +82,16 @@
       </button>
     </section>
     <section id="panel-boodschappen" class="panel" role="tabpanel" aria-labelledby="tab-boodschappen" hidden>
-      <p class="placeholder">Hier komen de Boodschappen.</p>
+      <div id="b-chips" class="chips chips--first" role="group" aria-label="Plekken"></div>
+      <div id="b-groups"></div>
+      <p id="b-empty" class="placeholder" hidden></p>
+      <section id="b-mandje" class="group mandje" aria-labelledby="b-mandje-title" hidden>
+        <div class="section__head">
+          <h2 id="b-mandje-title">In het mandje</h2>
+          <button id="b-clear" type="button" class="link">Leegmaken</button>
+        </div>
+        <ul id="b-mandje-list" class="boodschappen"></ul>
+      </section>
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" aria-labelledby="tab-mijlpalen" hidden>
       <div id="m-overview">
@@ -267,6 +276,27 @@
           <button type="submit" class="primary">Toevoegen</button>
           <button id="kennisbank-cancel" type="button" class="secondary">Annuleren</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="boodschap" class="sheet" aria-labelledby="b-edit-title">
+      <h2 id="b-edit-title">Boodschap</h2>
+      <form id="b-form" class="quick-add" novalidate>
+        <input id="b-title" class="field" type="text" autocomplete="off" enterkeyhint="done" aria-label="Naam">
+        <p id="b-error" class="error" role="alert" hidden>Geef de Boodschap een naam.</p>
+        <input id="b-note" class="field" type="text" autocomplete="off" enterkeyhint="done"
+               placeholder="Hoeveel, of een opmerking" aria-label="Hoeveelheid of opmerking">
+        <fieldset class="plekken">
+          <legend>Plekken</legend>
+          <div id="b-plekken" class="people"></div>
+          <input id="b-new-plek" class="field" type="text" autocomplete="off" enterkeyhint="done"
+                 placeholder="Nieuwe plek" aria-label="Nieuwe plek">
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="primary">Opslaan</button>
+          <button id="b-cancel" type="button" class="secondary">Annuleren</button>
+        </div>
+        <button id="b-remove" type="button" class="danger">Verwijderen, niet meer nodig</button>
       </form>
     </dialog>
 
