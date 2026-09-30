@@ -71,12 +71,17 @@ export function apply(issues, op) {
       }));
     case 'milestone':
       return patch(issues, op.ref, (i) => ({ ...i, milestone: op.milestone }));
-    case 'blockedBy':
+    case 'blockedBy': {
+      // The blocker may be listed by number and named by client ID, or the other way round.
+      const blocker = find(issues, op.blocker);
+      /** @param {IssueRef} b */
+      const isBlocker = (b) => b === op.blocker || (blocker !== undefined && matchesRef(blocker, b));
       return patch(issues, op.ref, (i) => {
-        const others = i.blockedBy.filter((b) => b !== op.blocker);
+        const others = i.blockedBy.filter((b) => !isBlocker(b));
         const blockedBy = op.add ? [...others, op.blocker] : others;
         return { ...i, blockedBy, blockedByCount: i.blockedByCount + blockedBy.length - i.blockedBy.length };
       });
+    }
     case 'parent': {
       const parentNumber = op.parent === null ? null : (find(issues, op.parent)?.number ?? null);
       let next = patch(issues, op.ref, (i) => ({ ...i, parent: parentNumber }));

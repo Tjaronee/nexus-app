@@ -323,6 +323,27 @@ test('blocking and unblocking a Taak uses GitHub issue dependencies', async () =
   assert.deepEqual(issue(store, 2)?.blockedBy, []);
 });
 
+test('a link can be removed by the client ID of a blocker that has since reached GitHub', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ title: 'verhuizen' });
+  const { store } = setup({ server });
+  await store.refresh();
+
+  // Its detail screen was opened while it was new, so it still goes by the client ID.
+  const busje = store.create({ title: 'busje regelen' });
+  store.addBlockedBy(1, busje);
+  await store.flush();
+  await store.refresh();
+  assert.deepEqual(issue(store, 1)?.blockedBy, [2]);
+
+  store.removeBlockedBy(1, busje);
+  assert.deepEqual(issue(store, 1)?.blockedBy, [], 'freed at once');
+  assert.equal(issue(store, 1)?.blockedByCount, 0);
+  store.addBlockedBy(1, busje);
+  store.addBlockedBy(1, 2);
+  assert.equal(issue(store, 1)?.blockedBy.length, 1, 'the same blocker only once');
+});
+
 test('a Taak created offline can be blocked by and put under an Epic', async () => {
   const server = createFakeGitHub();
   server.addIssue({ title: 'Verhuizen', labels: ['Epic'] });
