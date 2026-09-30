@@ -1,4 +1,4 @@
-import { saveTaak, choices, DEFAULTS } from './quick-add.js';
+import { saveDraft, choices, DEFAULTS } from './quick-add.js';
 import { $, fillSelect, peopleCheckboxes } from './dom.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
@@ -46,13 +46,13 @@ export function mountQuickAdd({ getStore, getMe }) {
       const { qaPrio, qaUrgentie } = /** @type {any} */ (chip.dataset);
       if (qaPrio) prio = qaPrio;
       if (qaUrgentie) urgentie = qaUrgentie;
-      renderChips();
+      render();
     });
   }
   // Only hides the Taak's choices, so turning Epic off again brings them back.
   isEpicChip.addEventListener('click', () => {
     isEpic = !isEpic;
-    renderChips();
+    render();
   });
 
   form.addEventListener('submit', (event) => {
@@ -73,7 +73,7 @@ export function mountQuickAdd({ getStore, getMe }) {
   function save() {
     const store = getStore();
     if (!store) return false;
-    const ref = saveTaak(store, read());
+    const ref = saveDraft(store, read());
     error.hidden = ref !== null;
     return ref !== null;
   }
@@ -107,11 +107,11 @@ export function mountQuickAdd({ getStore, getMe }) {
     fillSelect(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
     fillSelect(blocked, offered.blockers, null);
     people.replaceChildren(...peopleCheckboxes(offered.people));
-    renderChips();
+    render();
   }
 
   /** An Epic has no Prio, Urgentie or the Taak-only fields (Nexus ADR 0004). */
-  function renderChips() {
+  function render() {
     isEpicChip.setAttribute('aria-pressed', String(isEpic));
     for (const chip of chips) {
       const { qaPrio, qaUrgentie } = chip.dataset;

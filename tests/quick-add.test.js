@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { saveTaak, choices, DEFAULTS } from '../src/quick-add.js';
+import { saveDraft, choices, DEFAULTS } from '../src/quick-add.js';
 import { mijlpalenOverview } from '../src/mijlpalen.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
@@ -22,7 +22,7 @@ test('a Taak with only a title gets middel / binnenkort and nothing else', async
   const { store } = setup();
   await store.refresh();
 
-  saveTaak(store, { ...DEFAULTS, title: '  Dozen halen ' });
+  saveDraft(store, { ...DEFAULTS, title: '  Dozen halen ' });
 
   const pending = byTitle(store, 'Dozen halen');
   assert.ok(pending, 'shows at once, before GitHub has it');
@@ -41,7 +41,7 @@ test('a blank title saves nothing', async () => {
   const { store } = setup();
   await store.refresh();
 
-  const ref = saveTaak(store, { ...DEFAULTS, title: '   ' });
+  const ref = saveDraft(store, { ...DEFAULTS, title: '   ' });
 
   assert.equal(ref, null);
   assert.equal(store.getState().pending, 0);
@@ -53,7 +53,7 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
   const blocker = server.addIssue({ title: 'Sleutel ophalen' });
   await store.refresh();
 
-  saveTaak(store, {
+  saveDraft(store, {
     title: 'Kasten opbouwen',
     body: 'Met de schroevendraaier van de buren',
     isEpic: false,
@@ -81,8 +81,8 @@ test('can hang a Taak under an Epic, and block it on a Taak, that are still bein
   await store.refresh();
 
   const epicRef = store.create({ title: 'Verhuizen', labels: ['Epic'] });
-  const blockerRef = saveTaak(store, { ...DEFAULTS, title: 'Sleutel ophalen' });
-  saveTaak(store, { ...DEFAULTS, title: 'Kasten opbouwen', epic: epicRef, blockedBy: [/** @type {string} */ (blockerRef)] });
+  const blockerRef = saveDraft(store, { ...DEFAULTS, title: 'Sleutel ophalen' });
+  saveDraft(store, { ...DEFAULTS, title: 'Kasten opbouwen', epic: epicRef, blockedBy: [/** @type {string} */ (blockerRef)] });
   await store.flush();
   await store.refresh();
 
@@ -97,7 +97,7 @@ test('an Epic gets only the Epic label and its Mijlpaal, whatever else is filled
   const blocker = server.addIssue({ title: 'Sleutel ophalen' });
   await store.refresh();
 
-  saveTaak(store, {
+  saveDraft(store, {
     title: 'Tuin',
     body: 'Voor de zomer',
     isEpic: true,
@@ -124,7 +124,7 @@ test('a new Epic can be chosen for the next Taak at once, before GitHub has it',
   const { store } = setup();
   await store.refresh();
 
-  const epicRef = saveTaak(store, { ...DEFAULTS, title: 'Tuin', isEpic: true });
+  const epicRef = saveDraft(store, { ...DEFAULTS, title: 'Tuin', isEpic: true });
   const offered = choices(store.getState(), 'tjaronee').epics;
   assert.deepEqual(offered, [{ ref: epicRef, title: 'Tuin' }]);
   assert.deepEqual(
@@ -133,7 +133,7 @@ test('a new Epic can be chosen for the next Taak at once, before GitHub has it',
     'shows under "Zonder mijlpaal" at once',
   );
 
-  saveTaak(store, { ...DEFAULTS, title: 'Schutting verven', epic: offered[0].ref });
+  saveDraft(store, { ...DEFAULTS, title: 'Schutting verven', epic: offered[0].ref });
   await store.flush();
   await store.refresh();
 

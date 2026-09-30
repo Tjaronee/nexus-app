@@ -45,18 +45,15 @@ export const DEFAULTS = {
  * @param {Draft} draft
  * @returns {IssueRef | null}
  */
-export function saveTaak(store, draft) {
+export function saveDraft(store, draft) {
   const title = draft.title.trim();
   if (!title) return null;
-  if (draft.isEpic) {
-    return store.create({ title, body: draft.body.trim(), labels: [EPIC_LABEL], milestone: draft.mijlpaal });
-  }
+  const fields = { title, body: draft.body.trim(), milestone: draft.mijlpaal };
+  if (draft.isEpic) return store.create({ ...fields, labels: [EPIC_LABEL] });
   const ref = store.create({
-    title,
-    body: draft.body.trim(),
+    ...fields,
     labels: [PRIO_LABELS[draft.prio], URGENTIE_LABELS[draft.urgentie]],
     assignees: draft.toegewezen,
-    milestone: draft.mijlpaal,
   });
   if (draft.epic !== null) store.setParent(ref, draft.epic);
   for (const blocker of draft.blockedBy) store.addBlockedBy(ref, blocker);
