@@ -1,5 +1,7 @@
 import { mijlpalenOverview, mijlpaalView, epicView } from './mijlpalen.js';
 import { rowElement } from './taken-view.js';
+import { parseMarkdown } from './markdown.js';
+import { renderMarkdown } from './markdown-view.js';
 import { $, el } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
@@ -75,11 +77,7 @@ export function mountMijlpalen({ onOpen, onClose }) {
   /** @param {IssueRef} ref */
   function renderEpic(ref) {
     const view = epicView(issues, ref);
-    renderScreen(
-      view && { title: view.issue.title, description: '', progress: view.progress, epics: view.epics, taken: view.taken },
-      'Deze Epic bestaat niet meer.',
-      'Geen open Taken in deze Epic.',
-    );
+    renderScreen(view, 'Deze Epic bestaat niet meer.', 'Geen open Taken in deze Epic.');
   }
 
   /**
@@ -94,7 +92,8 @@ export function mountMijlpalen({ onOpen, onClose }) {
     $('m-screen-body').hidden = view === null;
     if (!view) return;
     $('m-progress').replaceChildren(progressBar(view.progress), el('span', 'muted small', countText(view.progress)));
-    $('m-description').textContent = view.description;
+    // Read-only: its checkboxes can't be ticked here.
+    $('m-description').replaceChildren(renderMarkdown(parseMarkdown(view.description), null));
     $('m-description').hidden = view.description.trim() === '';
     $('m-epics').replaceChildren(...view.epics.map(epicCard));
     $('m-epics-section').hidden = view.epics.length === 0;

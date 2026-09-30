@@ -58,7 +58,7 @@ export function mijlpaalView(issues, milestones, number) {
 }
 
 /**
- * An Epic's screen: its open Taken, and the Epics under it.
+ * An Epic's screen: its description, its open Taken, and the Epics under it.
  * @param {Issue[]} issues
  * @param {IssueRef} ref
  */
@@ -67,7 +67,8 @@ export function epicView(issues, ref) {
   if (!epic) return null;
   const children = childrenOf(issues, epic);
   return {
-    issue: epic,
+    title: epic.title,
+    description: epic.body,
     progress: progressOf(children),
     epics: children
       .filter((i) => kindOf(i) === 'epic')

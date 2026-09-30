@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mijlpalenOverview, mijlpaalView, epicView } from '../src/mijlpalen.js';
+import { toIssue, withCid } from '../src/data/model.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
 /** @typedef {import('../src/data/store.js').Milestone} Milestone */
@@ -167,7 +168,7 @@ test('an Epic shows its open Taken, sorted like the Taken list, and its sub-Epic
   ];
   const view = epicView(issues, epic.ref);
   assert.ok(view);
-  assert.equal(view.issue.title, 'Verkoop eigen woning');
+  assert.equal(view.title, 'Verkoop eigen woning');
   assert.deepEqual(view.progress, { closed: 1, total: 4 });
   assert.deepEqual(
     view.epics.map((e) => [e.issue.title, e.progress]),
@@ -180,6 +181,17 @@ test('an Epic shows its open Taken, sorted like the Taken list, and its sub-Epic
       ['ooit', []],
     ],
   );
+});
+
+test("an Epic's screen has its description, without the hidden client ID", () => {
+  const epic = toIssue({
+    number: 7,
+    title: 'Verhuizen',
+    state: 'open',
+    labels: [{ name: 'Epic' }],
+    body: withCid('Zie [de makelaar](https://example.nl)', 'abc-1'),
+  });
+  assert.equal(epicView([epic], 7)?.description, 'Zie [de makelaar](https://example.nl)');
 });
 
 test('an Epic that is gone has no screen', () => {
