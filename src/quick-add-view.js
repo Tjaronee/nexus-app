@@ -1,9 +1,12 @@
 import { saveDraft, choices, DEFAULTS } from './quick-add.js';
+import { blockerOptions } from './blocker-picker.js';
+import { mountBlockerPicker } from './blocker-picker-view.js';
 import { $, fillSelect, peopleCheckboxes } from './dom.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
 /** @typedef {import('./quick-add.js').Store} Store */
 /** @typedef {ReturnType<typeof choices>} Choices */
+/** @typedef {import('./blocker-picker.js').BlockerOption} BlockerOption */
 
 /**
  * The + button on the Taken tab and the bottom sheet it opens.
@@ -16,7 +19,6 @@ export function mountQuickAdd({ getStore, getMe }) {
   const body = /** @type {HTMLTextAreaElement} */ ($('qa-body'));
   const epic = /** @type {HTMLSelectElement} */ ($('qa-epic'));
   const mijlpaal = /** @type {HTMLSelectElement} */ ($('qa-mijlpaal'));
-  const blocked = /** @type {HTMLSelectElement} */ ($('qa-blocked'));
   const people = $('qa-people');
   const more = /** @type {HTMLDetailsElement} */ ($('qa-more'));
   const error = $('qa-error');
@@ -28,7 +30,25 @@ export function mountQuickAdd({ getStore, getMe }) {
 
   let { isEpic, prio, urgentie } = DEFAULTS;
   /** @type {Choices} */
-  let offered = { epics: [], mijlpalen: [], blockers: [], people: [] };
+  let offered = { epics: [], mijlpalen: [], people: [] };
+  /** Geblokkeerd door, saved only with the Taak. @type {BlockerOption[]} */
+  let blockedBy = [];
+
+  const blockers = mountBlockerPicker($('qa-blockers'), {
+    search(query) {
+      const store = getStore();
+      if (!store) return [];
+      return blockerOptions(store.getState().issues, { self: null, chosen: blockedBy.map((b) => b.ref) }, query);
+    },
+    onAdd(option) {
+      blockedBy = [...blockedBy, option];
+      renderBlockers();
+    },
+    onRemove(ref) {
+      blockedBy = blockedBy.filter((b) => b.ref !== ref);
+      renderBlockers();
+    },
+  });
 
   $('add-taak').addEventListener('click', () => {
     const store = getStore();
@@ -89,13 +109,14 @@ export function mountQuickAdd({ getStore, getMe }) {
       epic: epic.value === '' ? null : offered.epics[Number(epic.value)].ref,
       mijlpaal: mijlpaal.value === '' ? null : offered.mijlpalen[Number(mijlpaal.value)].number,
       toegewezen: [...people.querySelectorAll('input:checked')].map((box) => /** @type {HTMLInputElement} */ (box).value),
-      blockedBy: [...blocked.selectedOptions].map((o) => offered.blockers[Number(o.value)].ref),
+      blockedBy: blockedBy.map((b) => b.ref),
     };
   }
 
   /**
    * Empties every field except the chips, which carry over to the next one.
-   * The choices are fresh, so a Taak just saved can block the next one.
+   * The choices are fresh, and blockers are searched in the store as it is
+   * now, so a Taak just saved can be the Epic of or block the next one.
    */
   function clear() {
     const store = getStore();
@@ -105,7 +126,9 @@ export function mountQuickAdd({ getStore, getMe }) {
     error.hidden = true;
     fillSelect(epic, offered.epics, 'Geen Epic');
     fillSelect(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
-    fillSelect(blocked, offered.blockers, null);
+    blockedBy = [];
+    blockers.close();
+    renderBlockers();
     people.replaceChildren(...peopleCheckboxes(offered.people));
     render();
   }
@@ -120,5 +143,9 @@ export function mountQuickAdd({ getStore, getMe }) {
     }
     for (const field of taakOnly) field.hidden = isEpic;
     for (const noun of nouns) noun.textContent = isEpic ? 'Epic' : 'Taak';
+  }
+
+  function renderBlockers() {
+    blockers.render(blockedBy.map((b) => ({ ref: b.ref, title: b.title, open: true, known: true })));
   }
 }

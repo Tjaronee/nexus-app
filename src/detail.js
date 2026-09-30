@@ -1,6 +1,5 @@
-import { blocking, kindOf, matchesRef, prioOf, urgentieOf } from './data/model.js';
+import { blocking, matchesRef, prioOf, urgentieOf } from './data/model.js';
 import { choices } from './quick-add.js';
-import { normalise } from './text.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -28,26 +27,6 @@ export function detailOf(issues, ref) {
     }),
     blocking: blocking(issues, issue).map((i) => ({ ref: i.ref, title: i.title })),
   };
-}
-
-/**
- * The open Taken that could block this one, by title, for the "+ geblokkeerd
- * door…" search. The query matches the title or the issue number.
- * @param {Issue[]} issues
- * @param {Issue} issue
- * @param {string} query
- */
-export function blockerOptions(issues, issue, query) {
-  const terms = normalise(query).split(/\s+/).filter(Boolean);
-  return issues
-    .filter((i) => i.state === 'open' && kindOf(i) === 'taak' && !matchesRef(issue, i.ref))
-    .filter((i) => !issue.blockedBy.some((ref) => matchesRef(i, ref)))
-    .filter((i) => {
-      const text = `${normalise(i.title)} #${i.number ?? ''}`;
-      return terms.every((t) => text.includes(t));
-    })
-    .map((i) => ({ ref: i.ref, title: i.title, number: i.number }))
-    .sort((a, b) => a.title.localeCompare(b.title, 'nl'));
 }
 
 /**

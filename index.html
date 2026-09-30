@@ -196,8 +196,10 @@
             <legend>Toegewezen</legend>
             <div id="qa-people" class="people"></div>
           </fieldset>
-          <label for="qa-blocked" data-qa-taak-only>Geblokkeerd door</label>
-          <select id="qa-blocked" class="field" multiple size="4" data-qa-taak-only></select>
+          <fieldset data-qa-taak-only>
+            <legend>Geblokkeerd door</legend>
+            <div id="qa-blockers"></div>
+          </fieldset>
         </details>
         <div class="actions">
           <button type="submit" class="primary">Opslaan</button>
@@ -258,13 +260,7 @@
 
         <section class="section" aria-labelledby="d-blocked-title">
           <h3 id="d-blocked-title">Geblokkeerd door</h3>
-          <ul id="d-blocked" class="refs"></ul>
-          <button id="d-add-blocker" type="button" class="link">+ geblokkeerd door…</button>
-          <div id="d-blocker-search" hidden>
-            <input id="d-blocker-query" class="field" type="search" placeholder="Zoek een open Taak"
-                   aria-label="Zoek een open Taak" autocomplete="off">
-            <ul id="d-blocker-options" class="options"></ul>
-          </div>
+          <div id="d-blockers"></div>
         </section>
 
         <section id="d-blocking-section" class="section" aria-labelledby="d-blocking-title" hidden>

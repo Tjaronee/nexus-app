@@ -1,4 +1,6 @@
-import { detailOf, blockerOptions, assigneeChange, editChoices } from './detail.js';
+import { detailOf, assigneeChange, editChoices } from './detail.js';
+import { blockerOptions } from './blocker-picker.js';
+import { mountBlockerPicker } from './blocker-picker-view.js';
 import { parseMarkdown, toggleTask } from './markdown.js';
 import { renderMarkdown } from './markdown-view.js';
 import { $, el, fillSelect, peopleCheckboxes } from './dom.js';
@@ -27,8 +29,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   const bodyView = $('d-body');
   const bodyEditor = $('d-body-editor');
   const bodyText = /** @type {HTMLTextAreaElement} */ ($('d-body-text'));
-  const blockerSearch = $('d-blocker-search');
-  const blockerQuery = /** @type {HTMLInputElement} */ ($('d-blocker-query'));
   const copy = /** @type {HTMLButtonElement} */ ($('d-copy'));
   const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-d-prio], [data-d-urgentie]'));
 
@@ -74,7 +74,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     ref = next;
     bodyEditor.hidden = true;
     bodyView.hidden = false;
-    blockerSearch.hidden = true;
+    blockers.close();
     copy.textContent = 'Kopieer';
     if (!dialog.open) dialog.showModal();
     // The title is not focused, so the keyboard doesn't cover the screen.
@@ -163,13 +163,18 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     render();
   });
 
-  $('d-add-blocker').addEventListener('click', () => {
-    blockerSearch.hidden = !blockerSearch.hidden;
-    blockerQuery.value = '';
-    renderBlockerOptions();
-    if (!blockerSearch.hidden) blockerQuery.focus();
+  // Geblokkeerd door is saved straight away.
+  const blockers = mountBlockerPicker($('d-blockers'), {
+    search(query) {
+      const store = getStore();
+      const detail = current();
+      if (!store || !detail) return [];
+      return blockerOptions(store.getState().issues, { self: detail.issue, chosen: detail.issue.blockedBy }, query);
+    },
+    onAdd: (option) => edit((store, r) => store.addBlockedBy(r, option.ref)),
+    onRemove: (blocker) => edit((store, r) => store.removeBlockedBy(r, blocker)),
+    onOpen: open,
   });
-  blockerQuery.addEventListener('input', renderBlockerOptions);
 
   // Drawing
 
@@ -202,20 +207,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       );
     }
 
-    $('d-blocked').replaceChildren(
-      ...detail.blockedBy.map((b) => {
-        // One the app doesn't know has no screen to open; it can only be removed.
-        const li = b.known ? refItem(b.ref, b.title, open) : el('li', undefined, b.title);
-        if (!b.open) li.classList.add('done');
-        const remove = /** @type {HTMLButtonElement} */ (el('button', 'remove', '×'));
-        remove.type = 'button';
-        remove.setAttribute('aria-label', `Niet meer Geblokkeerd door ${b.title}`);
-        remove.addEventListener('click', () => edit((store, r) => store.removeBlockedBy(r, b.ref)));
-        li.append(remove);
-        return li;
-      }),
-    );
-    if (!blockerSearch.hidden) renderBlockerOptions();
+    blockers.render(detail.blockedBy);
     $('d-blocking').replaceChildren(...detail.blocking.map((b) => refItem(b.ref, b.title, open)));
     $('d-blocking-section').hidden = detail.blocking.length === 0;
 
@@ -239,27 +231,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       mijlpaal.value = offer.mijlpaal < 0 ? '' : String(offer.mijlpaal);
     }
     people.replaceChildren(...peopleCheckboxes(offer.people, offer.toegewezen));
-  }
-
-  function renderBlockerOptions() {
-    const store = getStore();
-    const detail = current();
-    if (!store || !detail) return;
-    const options = blockerOptions(store.getState().issues, detail.issue, blockerQuery.value);
-    $('d-blocker-options').replaceChildren(
-      ...options.map((o) => {
-        const button = /** @type {HTMLButtonElement} */ (el('button', 'option', o.title));
-        button.type = 'button';
-        if (o.number) button.append(el('span', 'muted', ` #${o.number}`));
-        button.addEventListener('click', () => {
-          blockerSearch.hidden = true;
-          edit((store, r) => store.addBlockedBy(r, o.ref));
-        });
-        const li = el('li');
-        li.append(button);
-        return li;
-      }),
-    );
   }
 
   return { open, render };

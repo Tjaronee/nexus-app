@@ -61,21 +61,13 @@ export function saveDraft(store, draft) {
 }
 
 /**
- * What the "meer" section offers: open Epics, Mijlpalen and Taken by name,
- * and who a Taak can be Toegewezen to. That is me, then everyone who has
- * been Toegewezen in Nexus before.
+ * What the "meer" section offers: open Epics and Mijlpalen by name, and who
+ * a Taak can be Toegewezen to. That is me, then everyone who has been
+ * Toegewezen in Nexus before.
  * @param {{ issues: Issue[], milestones: Milestone[] }} state
  * @param {string} me the signed-in login
  */
 export function choices({ issues, milestones }, me) {
-  const open = issues.filter((i) => i.state === 'open');
-  /** @param {import('./data/model.js').Kind} kind */
-  const ofKind = (kind) =>
-    open
-      .filter((i) => kindOf(i) === kind)
-      .map((i) => ({ ref: i.ref, title: i.title }))
-      .sort(byTitle);
-
   /** @type {string[]} */
   const people = me ? [me] : [];
   for (const { login } of issues.flatMap((i) => i.assignees)) {
@@ -83,9 +75,11 @@ export function choices({ issues, milestones }, me) {
   }
 
   return {
-    epics: ofKind('epic'),
+    epics: issues
+      .filter((i) => i.state === 'open' && kindOf(i) === 'epic')
+      .map((i) => ({ ref: i.ref, title: i.title }))
+      .sort(byTitle),
     mijlpalen: milestones.filter((m) => m.state === 'open').map((m) => ({ number: m.number, title: m.title })).sort(byTitle),
-    blockers: ofKind('taak'),
     people,
   };
 }
