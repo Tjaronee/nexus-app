@@ -5,6 +5,7 @@ import { nameKey, normalisePlek, plekkenOf, PLEK_PREFIX } from './boodschappen.j
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./quick-add.js').Store} Store */
 /** @typedef {{ issue: Issue, open: boolean }} Suggestion */
+/** What saving did: made a new one, put a closed one back, or found it open. @typedef {'nieuw' | 'terug' | 'al-op-lijst'} Outcome */
 
 const MAX_SUGGESTIONS = 5;
 
@@ -35,7 +36,7 @@ export function suggestions(issues, query) {
  * @param {Store} store
  * @param {{ name: string, note: string, plekken: string[] }} draft plekken as typed
  * @param {IssueRef | null} [pick]
- * @returns {{ outcome: 'nieuw' | 'terug' | 'al-op-lijst', ref: IssueRef } | null}
+ * @returns {{ outcome: Outcome, ref: IssueRef } | null}
  */
 export function addBoodschap(store, draft, pick = null) {
   const name = draft.name.replace(/\s+/g, ' ').trim();
@@ -55,7 +56,9 @@ export function addBoodschap(store, draft, pick = null) {
   const has = plekkenOf(existing).map(normalisePlek);
   const add = plekken.filter((p) => !has.includes(p)).map((p) => PLEK_PREFIX + p);
   if (add.length > 0) store.editLabels(existing.ref, { add });
-  if (note && note !== existing.body.trim()) store.update(existing.ref, { body: note });
+  // A new note replaces an old one from last time, but never the partner's on an open one.
+  const replaceable = existing.state === 'closed' || existing.body.trim() === '';
+  if (note && note !== existing.body.trim() && replaceable) store.update(existing.ref, { body: note });
   if (existing.state === 'open') return { outcome: 'al-op-lijst', ref: existing.ref };
   store.reopen(existing.ref);
   return { outcome: 'terug', ref: existing.ref };

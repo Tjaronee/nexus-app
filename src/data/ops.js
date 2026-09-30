@@ -267,6 +267,8 @@ export function settle(op, resolve) {
 /**
  * Creates the labels Nexus doesn't have yet, such as a new Plek's. One made
  * meanwhile, by the partner say, answers 422 "already exists": that's fine.
+ * If GitHub won't create it, the change goes ahead anyway: losing a
+ * Boodschap over its label would be worse, and GitHub may still add it.
  * @param {SendContext} ctx
  * @param {string[]} names
  */
@@ -274,9 +276,17 @@ async function ensureLabels(ctx, names) {
   const known = ctx.labels().map((l) => l.toLowerCase());
   for (const name of names) {
     if (known.includes(name.toLowerCase())) continue;
-    await call(ctx, 'POST', '/labels', { name }, [422]);
-    ctx.labelCreated(name);
+    const res = await call(ctx, 'POST', '/labels', { name }, [403, 404, 422]);
+    if (isTemporary(res)) throw res;
+    if (res.ok || res.status === 422) ctx.labelCreated(name);
   }
+}
+
+/** Rate limits and GitHub outages pass; anything else won't succeed on retry. @param {Response} res */
+export function isTemporary(res) {
+  if (res.status === 429 || res.status >= 500) return true;
+  // Primary limit: remaining 0. Secondary limit: a Retry-After header.
+  return res.status === 403 && (res.headers.get('x-ratelimit-remaining') === '0' || res.headers.has('retry-after'));
 }
 
 /**

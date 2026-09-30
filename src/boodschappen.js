@@ -26,8 +26,10 @@ export function boodschappenList(issues, { zoom, mandjeSince, tickedHere = [] })
   const all = issues.filter((i) => kindOf(i) === 'boodschap');
   const openIssues = all.filter((i) => i.state === 'open');
   // Two open with one name were added at nearly the same time; the user removes one.
-  const names = openIssues.map((i) => nameKey(i.title));
-  const isDouble = (/** @type {Issue} */ i) => names.filter((n) => n === nameKey(i.title)).length > 1;
+  /** @type {Map<string, number>} */
+  const perName = new Map();
+  for (const i of openIssues) perName.set(nameKey(i.title), (perName.get(nameKey(i.title)) ?? 0) + 1);
+  const isDouble = (/** @type {Issue} */ i) => (perName.get(nameKey(i.title)) ?? 0) > 1;
   const open = openIssues.map((i) => toItem(i, isDouble(i)));
   // Removed ones (not planned) never go in.
   const since = Date.parse(mandjeSince);
@@ -103,7 +105,8 @@ export function plekChoices(labels, issue) {
 export function knownPlekken(labels, issues) {
   const fromLabels = labels.filter((l) => l.startsWith(PLEK_PREFIX)).map((l) => l.slice(PLEK_PREFIX.length));
   const fromIssues = issues.filter((i) => kindOf(i) === 'boodschap').flatMap(plekkenOf);
-  return [...new Set([...fromLabels, ...fromIssues])].sort((a, b) => a.localeCompare(b, 'nl'));
+  // Normalised, so a label written by hand as "waar: Praxis" isn't a second "praxis".
+  return [...new Set([...fromLabels, ...fromIssues].map(normalisePlek))].sort((a, b) => a.localeCompare(b, 'nl'));
 }
 
 /**

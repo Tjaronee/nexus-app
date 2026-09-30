@@ -1,4 +1,4 @@
-import { boodschappenList, plekChoices, plekkenOf, saveBoodschap } from './boodschappen.js';
+import { boodschappenList, normalisePlek, plekChoices, plekkenOf, saveBoodschap } from './boodschappen.js';
 import { matchesRef } from './data/model.js';
 import { $, el, peopleCheckboxes } from './dom.js';
 
@@ -133,7 +133,7 @@ export function mountBoodschappen({ getStore, onRemove, onZoom }) {
     note.value = issue.body.trim();
     newPlek.value = '';
     $('b-error').hidden = true;
-    $('b-plekken').replaceChildren(...peopleCheckboxes(plekChoices(store.getState().labels, issue), plekkenOf(issue)));
+    $('b-plekken').replaceChildren(...peopleCheckboxes(plekChoices(store.getState().labels, issue), plekkenOf(issue).map(normalisePlek)));
     dialog.showModal();
   }
 

@@ -218,3 +218,30 @@ test('a label that turns out to exist already counts as created', async () => {
   assert.ok(labelPosts(server).length > 0 && labelPosts(server).every((l) => l.status === 422));
   assert.deepEqual(issues.map((i) => i.labels.sort()), [['boodschappen', 'waar: praxis']]);
 });
+
+test("a note typed for one already on the list doesn't replace the note it has", async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ title: 'verf', body: 'de blauwe', labels: ['boodschappen'] });
+  server.addIssue({ title: 'lijm', labels: ['boodschappen'] });
+  const store = phone(server);
+  await store.refresh();
+
+  addBoodschap(store, { ...NONE, name: 'verf', note: '2x' });
+  addBoodschap(store, { ...NONE, name: 'lijm', note: 'houtlijm' });
+
+  const issues = await sync(store);
+  assert.deepEqual(issues.map((i) => [i.title, i.body]), [['verf', 'de blauwe'], ['lijm', 'houtlijm']]);
+});
+
+test('a label GitHub refuses to create does not lose the Boodschap', async () => {
+  const server = createFakeGitHub();
+  server.state.refuseLabels = true;
+  const store = phone(server);
+  await store.refresh();
+
+  addBoodschap(store, { name: 'schroeven', note: '', plekken: ['bouwmarkt'] });
+  const issues = await sync(store);
+
+  assert.deepEqual(issues.map((i) => i.title), ['schroeven']);
+  assert.deepEqual(store.getState().failed, []);
+});

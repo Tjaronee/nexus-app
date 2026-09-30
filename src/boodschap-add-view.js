@@ -7,8 +7,8 @@ import { $, el } from './dom.js';
 /** @typedef {import('./quick-add.js').Store} Store */
 /** @typedef {import('./boodschappen.js').Zoom} Zoom */
 
-/** @type {Record<'nieuw' | 'terug' | 'al-op-lijst', string>} */
-const SAID = { nieuw: 'Toegevoegd', terug: 'Terug op de lijst', 'al-op-lijst': 'Staat al op de lijst' };
+/** What the bar says after saving. @type {Record<import('./boodschap-add.js').Outcome, string>} */
+const OUTCOME_TEXT = { nieuw: 'Toegevoegd', terug: 'Terug op de lijst', 'al-op-lijst': 'Staat al op de lijst' };
 
 /**
  * The chat-style bar at the bottom of the Boodschappen tab: type a name and
@@ -22,6 +22,8 @@ export function mountBoodschapAdd({ getStore }) {
   const note = /** @type {HTMLInputElement} */ ($('ba-note'));
   const newPlek = /** @type {HTMLInputElement} */ ($('ba-new-plek'));
   const status = $('ba-status');
+  /** The Plek zoomed in on, which new Boodschappen get by default. @type {string[]} */
+  let zoomPlekken = [];
   /** The Plekken the next Boodschap gets. @type {string[]} */
   let chosen = [];
   /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -32,6 +34,11 @@ export function mountBoodschapAdd({ getStore }) {
     save(null);
   });
   name.addEventListener('input', render);
+  // Keep the keyboard up: tapping send must not take focus from the field.
+  form.querySelector('.add-bar__send')?.addEventListener('pointerdown', (event) => event.preventDefault());
+  newPlek.addEventListener('blur', () => {
+    if (!newPlek.value.trim()) newPlek.hidden = true;
+  });
   newPlek.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     // Enter here adds the Plek; it doesn't save the Boodschap.
@@ -52,9 +59,11 @@ export function mountBoodschapAdd({ getStore }) {
     const result = addBoodschap(store, { name: name.value, note: note.value, plekken: chosen }, pick);
     if (!result) return;
     const issue = store.getState().issues.find((i) => matchesRef(i, result.ref));
-    say(`${SAID[result.outcome]}: ${issue?.title ?? name.value.trim()}`);
+    say(`${OUTCOME_TEXT[result.outcome]}: ${issue?.title ?? name.value.trim()}`);
     name.value = '';
     note.value = '';
+    // A Plek picked for this one isn't meant for the next.
+    chosen = zoomPlekken;
     name.focus();
     render();
   }
@@ -78,7 +87,10 @@ export function mountBoodschapAdd({ getStore }) {
         const button = /** @type {HTMLButtonElement} */ (el('button', 'suggestion', s.issue.title));
         button.type = 'button';
         if (s.open) button.append(el('span', 'muted small', ' · staat al op de lijst'));
-        else if (plekkenOf(s.issue).length > 0) button.append(el('span', 'muted small', ` · ${plekkenOf(s.issue).join(', ')}`));
+        else {
+          const plekken = plekkenOf(s.issue);
+          if (plekken.length > 0) button.append(el('span', 'muted small', ` · ${plekken.join(', ')}`));
+        }
         // Keep the keyboard up: the field must not lose focus to the tap.
         button.addEventListener('pointerdown', (event) => event.preventDefault());
         button.addEventListener('click', () => save(s.issue.ref));
@@ -102,13 +114,13 @@ export function mountBoodschapAdd({ getStore }) {
       });
       return chip;
     });
-    const add = /** @type {HTMLButtonElement} */ (el('button', 'chip chip--new', '+ nieuwe plek'));
-    add.type = 'button';
-    add.addEventListener('click', () => {
+    const addPlek = /** @type {HTMLButtonElement} */ (el('button', 'chip chip--new', '+ nieuwe plek'));
+    addPlek.type = 'button';
+    addPlek.addEventListener('click', () => {
       newPlek.hidden = false;
       newPlek.focus();
     });
-    $('ba-plekken').replaceChildren(...chips, add);
+    $('ba-plekken').replaceChildren(...chips, addPlek);
   }
 
   render();
@@ -120,7 +132,8 @@ export function mountBoodschapAdd({ getStore }) {
      * @param {Zoom} zoom
      */
     setZoom(zoom) {
-      chosen = zoom?.plek ? [zoom.plek] : [];
+      zoomPlekken = zoom?.plek ? [zoom.plek] : [];
+      chosen = zoomPlekken;
       render();
     },
   };
@@ -142,6 +155,7 @@ function keepAboveKeyboard(bar) {
     };
     viewport.addEventListener('resize', lift);
     viewport.addEventListener('scroll', lift);
+    lift();
   }
   new ResizeObserver(() => root.style.setProperty('--add-bar-h', `${bar.offsetHeight}px`)).observe(bar);
 }

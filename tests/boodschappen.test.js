@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boodschappenList, normalisePlek, saveBoodschap, plekChoices } from '../src/boodschappen.js';
+import { boodschappenList, normalisePlek, saveBoodschap, plekChoices, knownPlekken } from '../src/boodschappen.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -239,4 +239,8 @@ test('two open Boodschappen with the same name are both marked as possibly doubl
       [null, ' melk', true],
     ],
   );
+});
+
+test('known Plekken are listed as normalised, once each', () => {
+  assert.deepEqual(knownPlekken(['waar: Praxis', 'waar: praxis', 'waar: Albert  Heijn'], [boodschap('melk', ['PRAXIS'])]), ['albert heijn', 'praxis']);
 });
