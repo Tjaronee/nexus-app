@@ -31,6 +31,8 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     unauthorized: false,
     /** The next write reaches GitHub, but its response is lost. */
     dropNextResponse: false,
+    /** The token may not create labels. */
+    refuseLabels: false,
     /** @type {{ method: string, path: string, status: number }[]} */
     log: [],
   };
@@ -145,6 +147,14 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     if (m === 'GET' && path === `${REPO}/issues`) return listIssues(req, url);
     if (m === 'GET' && path === `${REPO}/milestones`) return conditional(req, milestones);
     if (m === 'GET' && path === `${REPO}/labels`) return conditional(req, labels);
+    if (m === 'POST' && path === `${REPO}/labels`) {
+      if (state.refuseLabels) return reply(403, { message: 'Resource not accessible by personal access token' });
+      if (labels.some((l) => l.name.toLowerCase() === body.name.toLowerCase())) {
+        return reply(422, { message: 'Validation Failed', errors: [{ resource: 'Label', code: 'already_exists', field: 'name' }] });
+      }
+      labels.push({ name: body.name });
+      return reply(201, { name: body.name });
+    }
 
     if (m === 'POST' && path === `${REPO}/issues`) {
       const issue = addIssue({

@@ -7,6 +7,7 @@ import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
 import { mountMijlpalen } from './mijlpalen-view.js';
 import { mountBoodschappen } from './boodschappen-view.js';
+import { mountBoodschapAdd } from './boodschap-add-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
 import { mountDetail } from './detail-view.js';
 import { mountClosing } from './closing-view.js';
@@ -44,7 +45,8 @@ const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addF
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close });
 const mijlpalen = mountMijlpalen({ onOpen: detail.open, onClose: closing.close });
-const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove });
+const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
+const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
 mountQuickAdd({ getStore: () => store, getMe });
 
 session.subscribe(render);
@@ -107,6 +109,7 @@ function renderLists() {
   taken.update(state?.issues ?? [], getMe());
   mijlpalen.update(state?.issues ?? [], state?.milestones ?? []);
   boodschappen.render();
+  boodschapAdd.render();
 }
 
 /** The small indicator of waiting changes, and a notice for refused ones. */

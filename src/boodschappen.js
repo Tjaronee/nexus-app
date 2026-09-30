@@ -5,10 +5,11 @@ import { normalise } from './text.js';
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./quick-add.js').Store} Store */
 /** A Plek name, or null for "Geen plek". @typedef {string | null} PlekKey */
-/** @typedef {{ issue: Issue, note: string }} Item */
+/** `double`: another open Boodschap has the same name ("mogelijk dubbel"). @typedef {{ issue: Issue, note: string, double: boolean }} Item */
 /** Zoomed in on one Plek, or null for all of them. @typedef {{ plek: PlekKey } | null} Zoom */
 
 export const PLEK_PREFIX = 'waar: ';
+const PLEK_MAX = 50 - PLEK_PREFIX.length;
 
 /**
  * The Boodschappen tab: the open Boodschappen grouped by Plek, and a chip per
@@ -23,7 +24,13 @@ export const PLEK_PREFIX = 'waar: ';
  */
 export function boodschappenList(issues, { zoom, mandjeSince, tickedHere = [] }) {
   const all = issues.filter((i) => kindOf(i) === 'boodschap');
-  const open = all.filter((i) => i.state === 'open').map(toItem);
+  const openIssues = all.filter((i) => i.state === 'open');
+  // Two open with one name were added at nearly the same time; the user removes one.
+  /** @type {Map<string, number>} */
+  const perName = new Map();
+  for (const i of openIssues) perName.set(nameKey(i.title), (perName.get(nameKey(i.title)) ?? 0) + 1);
+  const isDouble = (/** @type {Issue} */ i) => (perName.get(nameKey(i.title)) ?? 0) > 1;
+  const open = openIssues.map((i) => toItem(i, isDouble(i)));
   // Removed ones (not planned) never go in.
   const since = Date.parse(mandjeSince);
   const closedAt = (/** @type {Issue} */ i) => Date.parse(i.closedAt ?? '') || 0;
@@ -32,7 +39,7 @@ export function boodschappenList(issues, { zoom, mandjeSince, tickedHere = [] })
     .filter((i) => i.state === 'closed' && i.stateReason === 'completed' && bought(i))
     .filter((i) => !zoom || plekKeys(i).includes(zoom.plek))
     .sort((a, b) => closedAt(b) - closedAt(a))
-    .map(toItem);
+    .map((i) => toItem(i, false));
   const keys = [...new Set(open.flatMap((item) => plekKeys(item.issue)))];
   if (zoom && !keys.includes(zoom.plek)) keys.push(zoom.plek);
   keys.sort(byPlek);
@@ -86,13 +93,34 @@ export function saveBoodschap(store, ref, draft) {
  * @param {Issue} issue
  */
 export function plekChoices(labels, issue) {
-  const known = labels.filter((l) => l.startsWith(PLEK_PREFIX)).map((l) => l.slice(PLEK_PREFIX.length));
-  return [...new Set([...known, ...plekkenOf(issue)])].sort((a, b) => a.localeCompare(b, 'nl'));
+  return knownPlekken(labels, [issue]);
 }
 
-/** How a Plek is written in its label (Nexus ADR 0003). @param {string} name */
+/**
+ * Every Plek in Nexus, alphabetically: the `waar:` labels, plus any these
+ * issues have that the label list doesn't show yet.
+ * @param {string[]} labels all label names in Nexus
+ * @param {Issue[]} issues
+ */
+export function knownPlekken(labels, issues) {
+  const fromLabels = labels.filter((l) => l.startsWith(PLEK_PREFIX)).map((l) => l.slice(PLEK_PREFIX.length));
+  const fromIssues = issues.filter((i) => kindOf(i) === 'boodschap').flatMap(plekkenOf);
+  // Normalised, so a label written by hand as "waar: Praxis" isn't a second "praxis".
+  return [...new Set([...fromLabels, ...fromIssues].map(normalisePlek))].sort((a, b) => a.localeCompare(b, 'nl'));
+}
+
+/**
+ * How a Plek is written in its label (Nexus ADR 0003). GitHub allows 50
+ * characters in a label, and `waar: ` takes 6 of them.
+ * @param {string} name
+ */
 export function normalisePlek(name) {
-  return name.replace(/\s+/g, ' ').trim().toLowerCase();
+  return name.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, PLEK_MAX).trim();
+}
+
+/** How Boodschap names are compared: no case, accents or extra spaces. @param {string} name */
+export function nameKey(name) {
+  return normalise(name).replace(/\s+/g, ' ').trim();
 }
 
 /** The Plekken of a Boodschap, from its `waar:` labels. @param {Issue} issue @returns {string[]} */
@@ -106,9 +134,9 @@ function plekKeys(issue) {
   return plekken.length > 0 ? plekken : [null];
 }
 
-/** @param {Issue} issue @returns {Item} */
-function toItem(issue) {
-  return { issue, note: issue.body.trim().replace(/\s*\n\s*/g, ' · ') };
+/** @param {Issue} issue @param {boolean} double @returns {Item} */
+function toItem(issue, double) {
+  return { issue, note: issue.body.trim().replace(/\s*\n\s*/g, ' · '), double };
 }
 
 /** Alphabetical, "Geen plek" last. @param {PlekKey} a @param {PlekKey} b */
@@ -119,5 +147,5 @@ function byPlek(a, b) {
 
 /** @param {Item} a @param {Item} b */
 function byTitle(a, b) {
-  return normalise(a.issue.title).localeCompare(normalise(b.issue.title), 'nl');
+  return nameKey(a.issue.title).localeCompare(nameKey(b.issue.title), 'nl');
 }

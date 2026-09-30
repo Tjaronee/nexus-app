@@ -1,7 +1,7 @@
 import { NEXUS_OWNER, NEXUS_REPO } from '../config.js';
 import { UnauthorizedError } from '../github.js';
 import { toIssue, matchesRef, splitCid, avatarOf, PRIO_LABELS, URGENTIE_LABELS } from './model.js';
-import { apply, send, settle, MissingIssueError } from './ops.js';
+import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
 
 /** @typedef {import('./model.js').Issue} Issue */
 /** @typedef {import('./model.js').IssueRef} IssueRef */
@@ -195,7 +195,15 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       persistQueue();
     }
     try {
-      const raw = await send(op, { request: github.request, repo: REPO, resolve });
+      const raw = await send(op, {
+        request: github.request,
+        repo: REPO,
+        resolve,
+        labels: () => labels,
+        labelCreated: (name) => {
+          labels = [...labels, name];
+        },
+      });
       online = true;
       acceptedWrites++;
       if (raw) upsert(raw);
@@ -402,13 +410,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
         milestone: number === null ? null : { number, title: milestones.find((m) => m.number === number)?.title ?? '' },
       }),
   };
-}
-
-/** Rate limits and GitHub outages pass; anything else won't succeed on retry. @param {Response} res */
-function isTemporary(res) {
-  if (res.status === 429 || res.status >= 500) return true;
-  // Primary limit: remaining 0. Secondary limit: a Retry-After header.
-  return res.status === 403 && (res.headers.get('x-ratelimit-remaining') === '0' || res.headers.has('retry-after'));
 }
 
 /** @param {unknown} err */

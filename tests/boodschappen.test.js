@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boodschappenList, normalisePlek, saveBoodschap, plekChoices } from '../src/boodschappen.js';
+import { boodschappenList, normalisePlek, saveBoodschap, plekChoices, knownPlekken } from '../src/boodschappen.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -220,4 +220,27 @@ test('a Plek label written in capitals is kept, not removed and added again', as
   saveBoodschap(store, melk.number, { title: 'melk', note: '', plekken: ['praxis'] });
 
   assert.equal(store.getState().pending, 0);
+});
+
+test("a Plek name is cut to 44 characters, so its label fits GitHub's 50", () => {
+  const plek = normalisePlek(`${'a'.repeat(40)}  bcdefgh `);
+  assert.equal(plek, `${'a'.repeat(40)} bcd`);
+  assert.equal(`waar: ${plek}`.length, 50);
+});
+
+test('two open Boodschappen with the same name are both marked as possibly double', () => {
+  const issues = [boodschap('Melk', ['praxis']), boodschap(' melk'), boodschap('kaas'), boodschap('melk', [], { state: 'closed', stateReason: 'completed' })];
+  const view = list(issues);
+  assert.deepEqual(
+    view.groups.flatMap((g) => g.items.map((i) => [g.plek, i.issue.title, i.double])),
+    [
+      ['praxis', 'Melk', true],
+      [null, 'kaas', false],
+      [null, ' melk', true],
+    ],
+  );
+});
+
+test('known Plekken are listed as normalised, once each', () => {
+  assert.deepEqual(knownPlekken(['waar: Praxis', 'waar: praxis', 'waar: Albert  Heijn'], [boodschap('melk', ['PRAXIS'])]), ['albert heijn', 'praxis']);
 });

@@ -1,4 +1,4 @@
-import { boodschappenList, plekChoices, plekkenOf, saveBoodschap } from './boodschappen.js';
+import { boodschappenList, normalisePlek, plekChoices, plekkenOf, saveBoodschap } from './boodschappen.js';
 import { matchesRef } from './data/model.js';
 import { $, el, peopleCheckboxes } from './dom.js';
 
@@ -21,10 +21,11 @@ const DRAG_CLICK_MS = 400;
  * In het mandje shows what was bought since the app opened, so it empties
  * each time the app starts, or when "Leegmaken" is pressed.
  *
- * @param {{ getStore: () => Store | null, onRemove: (issue: Issue) => void }} deps
- *   `onRemove` closes a Boodschap that is no longer needed.
+ * @param {{ getStore: () => Store | null, onRemove: (issue: Issue) => void, onZoom: (zoom: Zoom) => void }} deps
+ *   `onRemove` closes a Boodschap that is no longer needed; `onZoom` is told
+ *   when a Plek chip is tapped.
  */
-export function mountBoodschappen({ getStore, onRemove }) {
+export function mountBoodschappen({ getStore, onRemove, onZoom }) {
   /** @type {Zoom} */
   let zoom = null;
   let mandjeSince = new Date().toISOString();
@@ -58,6 +59,7 @@ export function mountBoodschappen({ getStore, onRemove }) {
         // Tapping the Plek zoomed in on goes back to all of them.
         button.addEventListener('click', () => {
           zoom = chip.selected ? null : chip.zoom;
+          onZoom(zoom);
           render();
         });
         return button;
@@ -102,6 +104,7 @@ export function mountBoodschappen({ getStore, onRemove }) {
     const text = el('div', 'boodschap__text');
     text.append(name);
     if (item.note) text.append(el('div', 'boodschap__note', item.note));
+    if (item.double) text.append(el('div', 'boodschap__double', 'mogelijk dubbel'));
     li.append(check, text);
     swipeToRemove(li, () => onRemove(item.issue));
     return li;
@@ -130,7 +133,7 @@ export function mountBoodschappen({ getStore, onRemove }) {
     note.value = issue.body.trim();
     newPlek.value = '';
     $('b-error').hidden = true;
-    $('b-plekken').replaceChildren(...peopleCheckboxes(plekChoices(store.getState().labels, issue), plekkenOf(issue)));
+    $('b-plekken').replaceChildren(...peopleCheckboxes(plekChoices(store.getState().labels, issue), plekkenOf(issue).map(normalisePlek)));
     dialog.showModal();
   }
 

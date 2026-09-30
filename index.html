@@ -92,6 +92,22 @@
         </div>
         <ul id="b-mandje-list" class="boodschappen"></ul>
       </section>
+      <form id="ba-form" class="add-bar" novalidate>
+        <ul id="ba-suggestions" class="suggestions"></ul>
+        <p id="ba-status" class="add-bar__status" role="status" hidden></p>
+        <div class="add-bar__row">
+          <input id="ba-name" class="field" type="text" autocomplete="off" autocapitalize="off" enterkeyhint="send"
+                 placeholder="Wat moet er gehaald worden?" aria-label="Nieuwe Boodschap">
+          <button type="submit" class="add-bar__send" aria-label="Toevoegen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <input id="ba-note" class="field" type="text" autocomplete="off" enterkeyhint="send" hidden
+               placeholder="Hoeveel, of een opmerking (mag leeg)" aria-label="Hoeveelheid of opmerking">
+        <div id="ba-plekken" class="chips" role="group" aria-label="Plekken voor de nieuwe Boodschap"></div>
+        <input id="ba-new-plek" class="field" type="text" autocomplete="off" enterkeyhint="done" hidden
+               placeholder="Naam van de nieuwe plek" aria-label="Nieuwe plek">
+      </form>
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" aria-labelledby="tab-mijlpalen" hidden>
       <div id="m-overview">
