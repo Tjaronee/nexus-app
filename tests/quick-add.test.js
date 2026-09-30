@@ -154,7 +154,7 @@ function issue(over) {
 /** @param {string} login */
 const person = (login) => ({ login, avatarUrl: '' });
 
-test('offers open Epics, open Mijlpalen and open Taken to choose from, by name', () => {
+test('offers open Epics and open Mijlpalen to choose from, by name', () => {
   const issues = [
     issue({ number: 1, title: 'Verhuizen', labels: ['Epic'] }),
     issue({ number: 2, title: 'Afgerond', labels: ['Epic'], state: 'closed' }),
@@ -173,7 +173,6 @@ test('offers open Epics, open Mijlpalen and open Taken to choose from, by name',
 
   assert.deepEqual(c.epics, [{ ref: 3, title: 'Tuin' }, { ref: 1, title: 'Verhuizen' }]);
   assert.deepEqual(c.mijlpalen, [{ number: 1, title: 'Nieuw huis 2026' }]);
-  assert.deepEqual(c.blockers, [{ ref: 5, title: 'Behang kopen' }, { ref: 4, title: 'Zolder leeg' }]);
 });
 
 test('offers me first, then everyone who has been Toegewezen before', () => {

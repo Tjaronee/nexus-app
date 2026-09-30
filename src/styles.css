@@ -497,7 +497,6 @@ button {
 }
 .field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 textarea.field { resize: vertical; }
-select[multiple].field { padding: 0.25rem; }
 
 .more { display: grid; gap: 0.375rem; }
 .more[open] { padding-bottom: 0.25rem; }

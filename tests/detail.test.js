@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detailOf, blockerOptions, assigneeChange, editChoices } from '../src/detail.js';
+import { detailOf, assigneeChange, editChoices } from '../src/detail.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
 
@@ -44,26 +44,6 @@ test('lists what blocks the Taak, open or closed, and what it blocks', () => {
     { ref: 'cid-9', title: 'Onbekende Taak', open: true, known: false },
   ]);
   assert.deepEqual(d?.blocking, [{ ref: 4, title: 'Kasten opbouwen' }]);
-});
-
-test('can be blocked by any other open Taak it is not blocked by yet, found by title or number', () => {
-  const issues = [
-    issue({ number: 1, title: 'Verhuizen', blockedBy: [2] }),
-    issue({ number: 2, title: 'Sleutel ophalen' }),
-    issue({ number: 3, title: 'Dozen kopen' }),
-    issue({ number: 4, title: 'Dozijn eieren', labels: ['boodschappen'] }),
-    issue({ number: 5, title: 'Klaar', state: 'closed' }),
-    issue({ number: 6, title: 'Tuin', labels: ['Epic'] }),
-    issue({ number: 23, title: 'Afval wegbrengen' }),
-  ];
-  const self = issues[0];
-  assert.deepEqual(
-    blockerOptions(issues, self, '').map((o) => o.title),
-    ['Afval wegbrengen', 'Dozen kopen'],
-  );
-  assert.deepEqual(blockerOptions(issues, self, 'doz').map((o) => o.ref), [3]);
-  assert.deepEqual(blockerOptions(issues, self, '#23').map((o) => o.ref), [23]);
-  assert.deepEqual(blockerOptions(issues, self, '23').map((o) => o.ref), [23]);
 });
 
 test('turns the ticked people into who to add and who to remove, ignoring case', () => {
