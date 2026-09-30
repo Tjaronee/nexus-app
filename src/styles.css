@@ -284,6 +284,7 @@ button {
   font-size: 0.875rem;
 }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.chip:disabled { background: var(--surface); border-color: var(--border); color: var(--muted); opacity: 0.5; }
 
 .taken { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
 

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { saveTaak, choices, DEFAULTS } from '../src/quick-add.js';
+import { saveDraft, choices, DEFAULTS } from '../src/quick-add.js';
+import { mijlpalenOverview } from '../src/mijlpalen.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -21,7 +22,7 @@ test('a Taak with only a title gets middel / binnenkort and nothing else', async
   const { store } = setup();
   await store.refresh();
 
-  saveTaak(store, { ...DEFAULTS, title: '  Dozen halen ' });
+  saveDraft(store, { ...DEFAULTS, title: '  Dozen halen ' });
 
   const pending = byTitle(store, 'Dozen halen');
   assert.ok(pending, 'shows at once, before GitHub has it');
@@ -40,7 +41,7 @@ test('a blank title saves nothing', async () => {
   const { store } = setup();
   await store.refresh();
 
-  const ref = saveTaak(store, { ...DEFAULTS, title: '   ' });
+  const ref = saveDraft(store, { ...DEFAULTS, title: '   ' });
 
   assert.equal(ref, null);
   assert.equal(store.getState().pending, 0);
@@ -52,9 +53,10 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
   const blocker = server.addIssue({ title: 'Sleutel ophalen' });
   await store.refresh();
 
-  saveTaak(store, {
+  saveDraft(store, {
     title: 'Kasten opbouwen',
     body: 'Met de schroevendraaier van de buren',
+    isEpic: false,
     prio: 'hoog',
     urgentie: 'nu',
     epic: epic.number,
@@ -79,14 +81,63 @@ test('can hang a Taak under an Epic, and block it on a Taak, that are still bein
   await store.refresh();
 
   const epicRef = store.create({ title: 'Verhuizen', labels: ['Epic'] });
-  const blockerRef = saveTaak(store, { ...DEFAULTS, title: 'Sleutel ophalen' });
-  saveTaak(store, { ...DEFAULTS, title: 'Kasten opbouwen', epic: epicRef, blockedBy: [/** @type {string} */ (blockerRef)] });
+  const blockerRef = saveDraft(store, { ...DEFAULTS, title: 'Sleutel ophalen' });
+  saveDraft(store, { ...DEFAULTS, title: 'Kasten opbouwen', epic: epicRef, blockedBy: [/** @type {string} */ (blockerRef)] });
   await store.flush();
   await store.refresh();
 
   const saved = byTitle(store, 'Kasten opbouwen');
   assert.equal(saved?.parent, byTitle(store, 'Verhuizen')?.number);
   assert.deepEqual(saved?.blockedBy, [byTitle(store, 'Sleutel ophalen')?.number]);
+});
+
+test('an Epic gets only the Epic label and its Mijlpaal, whatever else is filled in', async () => {
+  const { server, store } = setup();
+  const other = server.addIssue({ title: 'Verhuizen', labels: ['Epic'] });
+  const blocker = server.addIssue({ title: 'Sleutel ophalen' });
+  await store.refresh();
+
+  saveDraft(store, {
+    title: 'Tuin',
+    body: 'Voor de zomer',
+    isEpic: true,
+    prio: 'hoog',
+    urgentie: 'nu',
+    epic: other.number,
+    mijlpaal: 1,
+    toegewezen: ['tjaronee'],
+    blockedBy: [blocker.number],
+  });
+  await store.flush();
+  await store.refresh();
+
+  const saved = byTitle(store, 'Tuin');
+  assert.deepEqual(saved?.labels, ['Epic']);
+  assert.equal(saved?.body, 'Voor de zomer');
+  assert.deepEqual(saved?.milestone, { number: 1, title: 'Nieuw huis 2026' });
+  assert.deepEqual(saved?.assignees, []);
+  assert.equal(saved?.parent, null);
+  assert.deepEqual(saved?.blockedBy, []);
+});
+
+test('a new Epic can be chosen for the next Taak at once, before GitHub has it', async () => {
+  const { store } = setup();
+  await store.refresh();
+
+  const epicRef = saveDraft(store, { ...DEFAULTS, title: 'Tuin', isEpic: true });
+  const offered = choices(store.getState(), 'tjaronee').epics;
+  assert.deepEqual(offered, [{ ref: epicRef, title: 'Tuin' }]);
+  assert.deepEqual(
+    mijlpalenOverview(store.getState().issues, []).zonder.map((e) => e.issue.title),
+    ['Tuin'],
+    'shows under "Zonder mijlpaal" at once',
+  );
+
+  saveDraft(store, { ...DEFAULTS, title: 'Schutting verven', epic: offered[0].ref });
+  await store.flush();
+  await store.refresh();
+
+  assert.equal(byTitle(store, 'Schutting verven')?.parent, byTitle(store, 'Tuin')?.number);
 });
 
 /** @param {Partial<import('../src/data/model.js').Issue>} over @returns {import('../src/data/model.js').Issue} */
