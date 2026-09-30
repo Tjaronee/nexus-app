@@ -370,7 +370,7 @@ button {
 .crumbbar { display: flex; align-items: center; gap: 0.25rem; margin: -0.5rem 0 0.5rem -0.75rem; }
 .crumbbar h2 { margin: 0; font-size: 1.25rem; overflow-wrap: anywhere; }
 .progress { display: grid; gap: 0.25rem; }
-#m-description { margin: 0.75rem 0 0; }
+#m-description { margin: 0 0 0.75rem; }
 
 /* Boodschappen */
 
