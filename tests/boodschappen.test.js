@@ -221,3 +221,22 @@ test('a Plek label written in capitals is kept, not removed and added again', as
 
   assert.equal(store.getState().pending, 0);
 });
+
+test("a Plek name is cut to 44 characters, so its label fits GitHub's 50", () => {
+  const plek = normalisePlek(`${'a'.repeat(40)}  bcdefgh `);
+  assert.equal(plek, `${'a'.repeat(40)} bcd`);
+  assert.equal(`waar: ${plek}`.length, 50);
+});
+
+test('two open Boodschappen with the same name are both marked as possibly double', () => {
+  const issues = [boodschap('Melk', ['praxis']), boodschap(' melk'), boodschap('kaas'), boodschap('melk', [], { state: 'closed', stateReason: 'completed' })];
+  const view = list(issues);
+  assert.deepEqual(
+    view.groups.flatMap((g) => g.items.map((i) => [g.plek, i.issue.title, i.double])),
+    [
+      ['praxis', 'Melk', true],
+      [null, 'kaas', false],
+      [null, ' melk', true],
+    ],
+  );
+});

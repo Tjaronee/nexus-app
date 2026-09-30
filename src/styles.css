@@ -410,6 +410,55 @@ button {
 .plekken legend { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
 #b-remove { margin-top: 0.25rem; }
 
+/* Boodschappen quick add */
+
+#panel-boodschappen { padding-bottom: calc(var(--add-bar-h, 0px) + 1.5rem); }
+
+.add-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Above the tab bar, or above the keyboard where it covers the page. */
+  bottom: max(calc(var(--tabbar-h) + var(--safe-bottom)), var(--keyboard-h, 0px));
+  z-index: 1;
+  display: grid;
+  gap: 0.375rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 0.375rem;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+.add-bar .chips { margin: 0 -1rem; }
+.add-bar__row { display: flex; gap: 0.5rem; }
+.add-bar__send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.add-bar__send svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.add-bar__status { margin: 0; font-size: 0.875rem; color: var(--muted); }
+.suggestions { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; max-height: 12rem; overflow-y: auto; }
+.suggestions:empty { display: none; }
+.suggestion {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+}
+.chip--new { border-style: dashed; color: var(--accent); }
+.boodschap__double { font-size: 0.75rem; color: var(--danger); }
+
 /* Quick add */
 
 #panel-taken { padding-bottom: 6rem; } /* Room for the + button under the last row. */
@@ -595,7 +644,7 @@ select[multiple].field { padding: 0.25rem; }
 .snackbar {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 0.75rem);
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--add-bar-h, 0px) + 0.75rem);
   z-index: 2;
   display: flex;
   flex-wrap: wrap;

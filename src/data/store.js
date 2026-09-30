@@ -195,7 +195,15 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       persistQueue();
     }
     try {
-      const raw = await send(op, { request: github.request, repo: REPO, resolve });
+      const raw = await send(op, {
+        request: github.request,
+        repo: REPO,
+        resolve,
+        labels: () => labels,
+        labelCreated: (name) => {
+          labels = [...labels, name];
+        },
+      });
       online = true;
       acceptedWrites++;
       if (raw) upsert(raw);
