@@ -371,6 +371,45 @@ button {
 .progress { display: grid; gap: 0.25rem; }
 #m-description { margin: 0.75rem 0 0; white-space: pre-line; }
 
+/* Boodschappen */
+
+.chips--first { margin-top: 0; }
+.plek { margin-top: 1rem; }
+.plek h2 { margin: 0 0 0.5rem; font-size: 0.9375rem; color: var(--muted); text-transform: capitalize; }
+.boodschappen { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.375rem; }
+.boodschap {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  touch-action: pan-y; /* Horizontal drags are swipes to remove. */
+  transition: transform 0.15s ease-out;
+}
+.boodschap--dragging { transition: none; }
+.boodschap--removing { border-color: var(--danger); background: var(--error-bg); }
+.boodschap__text { flex: 1; min-width: 0; }
+.boodschap__name {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.boodschap__note { font-size: 0.8125rem; color: var(--muted); overflow-wrap: anywhere; }
+.boodschap--mandje .boodschap__name { font-weight: 400; color: var(--muted); text-decoration: line-through; }
+.mandje .section__head { margin-bottom: 0.5rem; }
+.mandje .section__head h2 { margin: 0; }
+.mandje .link { min-height: 36px; text-decoration: none; font-weight: 600; }
+
+.plekken { display: grid; gap: 0.375rem; margin: 0; padding: 0; border: none; }
+.plekken legend { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
+#b-remove { margin-top: 0.25rem; }
+
 /* Quick add */
 
 #panel-taken { padding-bottom: 6rem; } /* Room for the + button under the last row. */
