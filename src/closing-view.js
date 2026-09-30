@@ -15,7 +15,7 @@ const SNACKBAR_MS = 5000;
  */
 export function mountClosing({ getStore, onAddFile }) {
   const snackbar = $('snackbar');
-  /** The Taak the snackbar is about. @type {IssueRef | null} */
+  /** The Taak or Boodschap the snackbar is about. @type {IssueRef | null} */
   let closed = null;
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timer;

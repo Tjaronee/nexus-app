@@ -201,3 +201,23 @@ test('the edit sheet offers every known Plek, alphabetically', () => {
   const melk = boodschap('melk', ['zeeman']);
   assert.deepEqual(plekChoices(['Epic', 'waar: praxis', 'boodschappen', 'waar: centrum'], melk), ['centrum', 'praxis', 'zeeman']);
 });
+
+test("what was ticked on this phone stays In het mandje, even if GitHub's clock says it was before", () => {
+  const melk = boodschap('melk', [], { state: 'closed', stateReason: 'completed', closedAt: '2026-09-29T11:59:00Z' });
+  assert.deepEqual(list([melk]).mandje, []);
+  assert.deepEqual(
+    list([melk], { tickedHere: [melk.ref] }).mandje.map((i) => i.issue.title),
+    ['melk'],
+  );
+});
+
+test('a Plek label written in capitals is kept, not removed and added again', async () => {
+  const server = createFakeGitHub();
+  const melk = server.addIssue({ title: 'melk', labels: ['boodschappen', 'waar: Praxis'] });
+  const store = phone(server);
+  await store.refresh();
+
+  saveBoodschap(store, melk.number, { title: 'melk', note: '', plekken: ['praxis'] });
+
+  assert.equal(store.getState().pending, 0);
+});

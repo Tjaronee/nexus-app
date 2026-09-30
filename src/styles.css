@@ -388,7 +388,7 @@ button {
   touch-action: pan-y; /* Horizontal drags are swipes to remove. */
   transition: transform 0.15s ease-out;
 }
-.boodschap[style*="translateX"] { transition: none; }
+.boodschap--dragging { transition: none; }
 .boodschap--removing { border-color: var(--danger); background: var(--error-bg); }
 .boodschap__text { flex: 1; min-width: 0; }
 .boodschap__name {

@@ -10,6 +10,10 @@ import { $, el, peopleCheckboxes } from './dom.js';
 
 /** How far a row must be swiped left to remove it. */
 const SWIPE_PX = 96;
+/** A drag shorter than this still counts as a tap. */
+const TAP_SLOP_PX = 10;
+/** How long after a drag a click is taken to come from that drag. */
+const DRAG_CLICK_MS = 400;
 
 /**
  * The Boodschappen tab in #panel-boodschappen, and the sheet to edit one.
@@ -24,6 +28,8 @@ export function mountBoodschappen({ getStore, onRemove }) {
   /** @type {Zoom} */
   let zoom = null;
   let mandjeSince = new Date().toISOString();
+  /** What was ticked on this phone since then. @type {IssueRef[]} */
+  let tickedHere = [];
 
   const dialog = /** @type {HTMLDialogElement} */ ($('boodschap'));
   const form = /** @type {HTMLFormElement} */ ($('b-form'));
@@ -35,12 +41,13 @@ export function mountBoodschappen({ getStore, onRemove }) {
 
   $('b-clear').addEventListener('click', () => {
     mandjeSince = new Date().toISOString();
+    tickedHere = [];
     render();
   });
 
   function render() {
     const store = getStore();
-    const view = boodschappenList(store?.getState().issues ?? [], { zoom, mandjeSince });
+    const view = boodschappenList(store?.getState().issues ?? [], { zoom, mandjeSince, tickedHere });
 
     $('b-chips').replaceChildren(
       ...view.chips.map((chip) => {
@@ -67,9 +74,9 @@ export function mountBoodschappen({ getStore, onRemove }) {
         return section;
       }),
     );
-    const open = view.groups.reduce((n, g) => n + g.items.length, 0);
+    const openCount = view.groups.reduce((n, g) => n + g.items.length, 0);
     $('b-empty').textContent = zoom ? 'Hier hoeft niets meer gehaald te worden.' : 'Geen Boodschappen.';
-    $('b-empty').hidden = open > 0;
+    $('b-empty').hidden = openCount > 0;
 
     $('b-mandje-list').replaceChildren(...view.mandje.map(mandjeRow));
     $('b-mandje').hidden = view.mandje.length === 0;
@@ -83,7 +90,12 @@ export function mountBoodschappen({ getStore, onRemove }) {
     check.setAttribute('role', 'checkbox');
     check.setAttribute('aria-checked', 'false');
     check.setAttribute('aria-label', `${item.issue.title} in het mandje`);
-    check.addEventListener('click', () => getStore()?.close(item.issue.ref, 'completed'));
+    check.addEventListener('click', () => {
+      const store = getStore();
+      if (!store) return;
+      tickedHere = [...tickedHere, item.issue.ref];
+      store.close(item.issue.ref, 'completed');
+    });
     const name = /** @type {HTMLButtonElement} */ (el('button', 'boodschap__name', item.issue.title));
     name.type = 'button';
     name.addEventListener('click', () => edit(item.issue.ref));
@@ -155,6 +167,15 @@ function swipeToRemove(row, onSwiped) {
   /** @type {{ x: number, y: number, id: number } | null} */
   let start = null;
   let dx = 0;
+  let draggedAt = 0;
+  // A drag is not a tap: don't let it also open or tick the Boodschap.
+  row.addEventListener(
+    'click',
+    (event) => {
+      if (Date.now() - draggedAt < DRAG_CLICK_MS) event.stopPropagation();
+    },
+    { capture: true },
+  );
   row.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'mouse') return;
     start = { x: event.clientX, y: event.clientY, id: event.pointerId };
@@ -169,15 +190,15 @@ function swipeToRemove(row, onSwiped) {
     }
     dx = Math.min(0, moveX);
     row.style.transform = `translateX(${dx}px)`;
+    row.classList.add('boodschap--dragging');
     row.classList.toggle('boodschap--removing', dx < -SWIPE_PX);
   });
   const end = () => {
     if (!start) return;
     start = null;
     row.style.transform = '';
-    row.classList.remove('boodschap--removing');
-    // A drag is not a tap: don't let it also open or tick the Boodschap.
-    if (dx < -10) row.addEventListener('click', (event) => event.stopPropagation(), { capture: true, once: true });
+    row.classList.remove('boodschap--dragging', 'boodschap--removing');
+    if (dx < -TAP_SLOP_PX) draggedAt = Date.now();
     if (dx < -SWIPE_PX) onSwiped();
   };
   row.addEventListener('pointerup', end);

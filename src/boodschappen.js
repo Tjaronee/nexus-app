@@ -14,17 +14,22 @@ export const PLEK_PREFIX = 'waar: ';
  * The Boodschappen tab: the open Boodschappen grouped by Plek, and a chip per
  * Plek to zoom in on it. A chip only exists for a Plek with something open,
  * except the one zoomed in on, so it can still be tapped to zoom out.
+ *
+ * In het mandje is what was bought since `mandjeSince`, a time on this phone's
+ * clock. GitHub's clock can differ, so what was ticked on this phone
+ * (`tickedHere`) is in it regardless.
  * @param {Issue[]} issues
- * @param {{ zoom: Zoom, mandjeSince: string }} options
+ * @param {{ zoom: Zoom, mandjeSince: string, tickedHere?: IssueRef[] }} options
  */
-export function boodschappenList(issues, { zoom, mandjeSince }) {
+export function boodschappenList(issues, { zoom, mandjeSince, tickedHere = [] }) {
   const all = issues.filter((i) => kindOf(i) === 'boodschap');
   const open = all.filter((i) => i.state === 'open').map(toItem);
-  // Bought since the list was last cleared; removed ones (not planned) never go in.
+  // Removed ones (not planned) never go in.
   const since = Date.parse(mandjeSince);
   const closedAt = (/** @type {Issue} */ i) => Date.parse(i.closedAt ?? '') || 0;
+  const bought = (/** @type {Issue} */ i) => closedAt(i) >= since || tickedHere.some((ref) => matchesRef(i, ref));
   const mandje = all
-    .filter((i) => i.state === 'closed' && i.stateReason === 'completed' && closedAt(i) >= since)
+    .filter((i) => i.state === 'closed' && i.stateReason === 'completed' && bought(i))
     .filter((i) => !zoom || plekKeys(i).includes(zoom.plek))
     .sort((a, b) => closedAt(b) - closedAt(a))
     .map(toItem);
@@ -64,10 +69,12 @@ export function saveBoodschap(store, ref, draft) {
   if (body !== issue.body.trim()) fields.body = body;
   if (Object.keys(fields).length > 0) store.update(ref, fields);
 
+  // Compared normalised, so a label written by hand as "waar: Praxis" is left alone.
   const current = plekkenOf(issue);
+  const kept = current.map(normalisePlek);
   const chosen = [...new Set(draft.plekken.map(normalisePlek).filter(Boolean))];
-  const add = chosen.filter((p) => !current.includes(p)).map((p) => PLEK_PREFIX + p);
-  const remove = current.filter((p) => !chosen.includes(p)).map((p) => PLEK_PREFIX + p);
+  const add = chosen.filter((p) => !kept.includes(p)).map((p) => PLEK_PREFIX + p);
+  const remove = current.filter((p) => !chosen.includes(normalisePlek(p))).map((p) => PLEK_PREFIX + p);
   if (add.length + remove.length > 0) store.editLabels(ref, { add, remove });
   return true;
 }
