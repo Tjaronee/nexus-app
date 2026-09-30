@@ -200,6 +200,10 @@
             <legend>Geblokkeerd door</legend>
             <div id="qa-blockers"></div>
           </fieldset>
+          <fieldset data-qa-taak-only>
+            <legend>Blokkeert</legend>
+            <div id="qa-blocks"></div>
+          </fieldset>
         </details>
         <div class="actions">
           <button type="submit" class="primary">Opslaan</button>
@@ -263,9 +267,9 @@
           <div id="d-blockers"></div>
         </section>
 
-        <section id="d-blocking-section" class="section" aria-labelledby="d-blocking-title" hidden>
+        <section class="section" aria-labelledby="d-blocking-title">
           <h3 id="d-blocking-title">Blokkeert</h3>
-          <ul id="d-blocking" class="refs"></ul>
+          <div id="d-blocks"></div>
         </section>
 
         <section class="section" aria-labelledby="d-comments-title">

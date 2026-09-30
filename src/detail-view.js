@@ -75,6 +75,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     bodyEditor.hidden = true;
     bodyView.hidden = false;
     blockers.close();
+    blocks.close();
     copy.textContent = 'Kopieer';
     if (!dialog.open) dialog.showModal();
     // The title is not focused, so the keyboard doesn't cover the screen.
@@ -163,16 +164,27 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     render();
   });
 
-  // Geblokkeerd door is saved straight away.
+  // Geblokkeerd door and Blokkeert are saved straight away. "A blokkeert B"
+  // is stored as B Geblokkeerd door A.
+  /** @param {string} query */
+  const search = (query) => {
+    const store = getStore();
+    const detail = current();
+    if (!store || !detail) return [];
+    return blockerOptions(store.getState().issues, { self: detail.issue, linked: [] }, query);
+  };
   const blockers = mountBlockerPicker($('d-blockers'), {
-    search(query) {
-      const store = getStore();
-      const detail = current();
-      if (!store || !detail) return [];
-      return blockerOptions(store.getState().issues, { self: detail.issue, chosen: detail.issue.blockedBy }, query);
-    },
+    direction: 'geblokkeerd door',
+    search,
     onAdd: (option) => edit((store, r) => store.addBlockedBy(r, option.ref)),
     onRemove: (blocker) => edit((store, r) => store.removeBlockedBy(r, blocker)),
+    onOpen: open,
+  });
+  const blocks = mountBlockerPicker($('d-blocks'), {
+    direction: 'blokkeert',
+    search,
+    onAdd: (option) => edit((store, r) => store.addBlockedBy(option.ref, r)),
+    onRemove: (blocked) => edit((store, r) => store.removeBlockedBy(blocked, r)),
     onOpen: open,
   });
 
@@ -208,8 +220,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     }
 
     blockers.render(detail.blockedBy);
-    $('d-blocking').replaceChildren(...detail.blocking.map((b) => refItem(b.ref, b.title, open)));
-    $('d-blocking-section').hidden = detail.blocking.length === 0;
+    blocks.render(detail.blocking);
 
     const comments = getStore()?.comments(issue.ref) ?? [];
     $('d-comments').replaceChildren(...comments.map(commentItem));
@@ -234,16 +245,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   }
 
   return { open, render };
-}
-
-/** @param {IssueRef} ref @param {string} title @param {(ref: IssueRef) => void} open */
-function refItem(ref, title, open) {
-  const li = el('li');
-  const link = /** @type {HTMLButtonElement} */ (el('button', 'link', title));
-  link.type = 'button';
-  link.addEventListener('click', () => open(ref));
-  li.append(link);
-  return li;
 }
 
 /** @param {import('./data/store.js').Comment} comment */

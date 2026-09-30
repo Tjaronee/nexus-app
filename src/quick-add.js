@@ -7,7 +7,8 @@ import { kindOf, EPIC_LABEL, PRIO_LABELS, URGENTIE_LABELS } from './data/model.j
 /** @typedef {import('./data/store.js').Milestone} Milestone */
 /** @typedef {ReturnType<import('./data/store.js').createStore>} Store */
 /**
- * What the quick-add sheet has filled in. `toegewezen` holds logins. With
+ * What the quick-add sheet has filled in. `toegewezen` holds logins,
+ * `blockedBy` what it is Geblokkeerd door and `blocks` what it Blokkeert. With
  * `isEpic` it makes an Epic, and only the title, body and Mijlpaal count.
  * @typedef {{
  *   title: string,
@@ -19,6 +20,7 @@ import { kindOf, EPIC_LABEL, PRIO_LABELS, URGENTIE_LABELS } from './data/model.j
  *   mijlpaal: number | null,
  *   toegewezen: string[],
  *   blockedBy: IssueRef[],
+ *   blocks: IssueRef[],
  * }} Draft
  */
 
@@ -33,10 +35,12 @@ export const DEFAULTS = {
   mijlpaal: null,
   toegewezen: [],
   blockedBy: [],
+  blocks: [],
 };
 
 /**
- * Creates the Taak, then puts it under its Epic and records what blocks it.
+ * Creates the Taak, then puts it under its Epic and records what blocks it
+ * and what it Blokkeert.
  * These are queued in order, so they work offline and for an Epic or blocker
  * that is itself still being created. An Epic gets the Epic label and no
  * Prio or Urgentie (Nexus ADR 0004). Returns the new issue's ref, or null
@@ -57,6 +61,7 @@ export function saveDraft(store, draft) {
   });
   if (draft.epic !== null) store.setParent(ref, draft.epic);
   for (const blocker of draft.blockedBy) store.addBlockedBy(ref, blocker);
+  for (const blocked of draft.blocks) store.addBlockedBy(blocked, ref);
   return ref;
 }
 
