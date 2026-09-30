@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { saveDraft, choices, DEFAULTS } from '../src/quick-add.js';
 import { mijlpalenOverview } from '../src/mijlpalen.js';
+import { takenList, ALL } from '../src/taken.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -63,6 +64,7 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
     mijlpaal: 1,
     toegewezen: ['tjaronee', 'partner'],
     blockedBy: [blocker.number],
+    blocks: [],
   });
   await store.flush();
   await store.refresh();
@@ -74,6 +76,33 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
   assert.deepEqual(saved?.milestone, { number: 1, title: 'Nieuw huis 2026' });
   assert.equal(saved?.parent, epic.number);
   assert.deepEqual(saved?.blockedBy, [blocker.number]);
+});
+
+/** @param {ReturnType<typeof createStore>} store */
+const geblokkeerd = (store) =>
+  takenList(store.getState().issues, { filters: ALL, search: '', me: 'tjaronee' }).blocked.map((r) => r.issue.title);
+
+test('a new Taak that Blokkeert another shows on GitHub as blocking it, until the link is removed', async () => {
+  const { server, store } = setup();
+  const later = server.addIssue({ title: 'Kasten opbouwen' });
+  await store.refresh();
+
+  saveDraft(store, { ...DEFAULTS, title: 'Sleutel ophalen', blocks: [later.number] });
+  const pending = store.getState().issues.find((i) => i.number === later.number);
+  assert.equal(pending?.blockedBy.length, 1, 'the other Taak is Geblokkeerd at once');
+  await store.flush();
+  await store.refresh();
+
+  const sleutel = /** @type {number} */ (byTitle(store, 'Sleutel ophalen')?.number);
+  assert.deepEqual(server.blockersOf(later.number), [sleutel]);
+  assert.deepEqual(geblokkeerd(store), ['Kasten opbouwen']);
+
+  // What the detail screen of "Sleutel ophalen" does on ×.
+  store.removeBlockedBy(later.number, sleutel);
+  assert.deepEqual(geblokkeerd(store), [], 'freed at once');
+  await store.flush();
+  await store.refresh();
+  assert.deepEqual(server.blockersOf(later.number), []);
 });
 
 test('can hang a Taak under an Epic, and block it on a Taak, that are still being created', async () => {
@@ -107,11 +136,13 @@ test('an Epic gets only the Epic label and its Mijlpaal, whatever else is filled
     mijlpaal: 1,
     toegewezen: ['tjaronee'],
     blockedBy: [blocker.number],
+    blocks: [blocker.number],
   });
   await store.flush();
   await store.refresh();
 
   const saved = byTitle(store, 'Tuin');
+  assert.deepEqual(server.blockersOf(blocker.number), [], 'blokkeert nothing');
   assert.deepEqual(saved?.labels, ['Epic']);
   assert.equal(saved?.body, 'Voor de zomer');
   assert.deepEqual(saved?.milestone, { number: 1, title: 'Nieuw huis 2026' });

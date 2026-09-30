@@ -43,7 +43,7 @@ test('lists what blocks the Taak, open or closed, and what it blocks', () => {
     { ref: 7, title: '#7', open: true, known: false },
     { ref: 'cid-9', title: 'Onbekende Taak', open: true, known: false },
   ]);
-  assert.deepEqual(d?.blocking, [{ ref: 4, title: 'Kasten opbouwen' }]);
+  assert.deepEqual(d?.blocking, [{ ref: 4, title: 'Kasten opbouwen', open: true, known: true }]);
 });
 
 test('turns the ticked people into who to add and who to remove, ignoring case', () => {

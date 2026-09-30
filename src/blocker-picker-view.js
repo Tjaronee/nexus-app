@@ -8,21 +8,32 @@ import { el } from './dom.js';
  * @typedef {{ ref: IssueRef, title: string, open: boolean, known: boolean }} Chosen
  */
 
+/** @typedef {'geblokkeerd door' | 'blokkeert'} Direction */
+
+/** What the picker says, per direction. */
+const WORDING = {
+  'geblokkeerd door': { add: '+ geblokkeerd door…', remove: (/** @type {string} */ title) => `Niet meer Geblokkeerd door ${title}` },
+  blokkeert: { add: '+ blokkeert…', remove: (/** @type {string} */ title) => `Blokkeert ${title} niet meer` },
+};
+
 /**
- * "Geblokkeerd door", shared by quick-add and the detail screen: the chosen
- * Taken, each with a × to remove it, and "+ geblokkeerd door…" to search for
- * one more. The caller decides what adding and removing does, and redraws.
+ * "Geblokkeerd door" or "Blokkeert", shared by quick-add and the detail
+ * screen: the chosen Taken, each with a × to remove it, and "+ geblokkeerd
+ * door…" or "+ blokkeert…" to search for one more. The caller decides what
+ * adding and removing does, and redraws.
  * @param {HTMLElement} root an empty element to build it in
  * @param {{
+ *   direction: Direction,
  *   search: (query: string) => BlockerOption[],
  *   onAdd: (option: BlockerOption) => void,
  *   onRemove: (ref: IssueRef) => void,
  *   onOpen?: (ref: IssueRef) => void,
  * }} deps `onOpen`, if given, makes a chosen Taak tappable.
  */
-export function mountBlockerPicker(root, { search, onAdd, onRemove, onOpen }) {
+export function mountBlockerPicker(root, { direction, search, onAdd, onRemove, onOpen }) {
+  const wording = WORDING[direction];
   const list = el('ul', 'refs');
-  const add = button('link', '+ geblokkeerd door…');
+  const add = button('link', wording.add);
   const panel = el('div');
   const query = /** @type {HTMLInputElement} */ (el('input', 'field'));
   query.type = 'search';
@@ -85,7 +96,7 @@ export function mountBlockerPicker(root, { search, onAdd, onRemove, onOpen }) {
           }
           if (!c.open) li.classList.add('done');
           const remove = button('remove', '×');
-          remove.setAttribute('aria-label', `Niet meer Geblokkeerd door ${c.title}`);
+          remove.setAttribute('aria-label', wording.remove(c.title));
           remove.addEventListener('click', () => onRemove(c.ref));
           li.append(remove);
           return li;

@@ -8,7 +8,8 @@ import { choices } from './quick-add.js';
 /**
  * A Taak as its detail screen shows it. "Geblokkeerd door" keeps closed
  * blockers too, so they can still be removed; one the app doesn't know
- * (`known: false`) shows by number, and can only be removed.
+ * (`known: false`) shows by number, and can only be removed. "Blokkeert"
+ * lists the open Taken it blocks, in the same shape.
  * @param {Issue[]} issues
  * @param {IssueRef} ref
  */
@@ -25,7 +26,7 @@ export function detailOf(issues, ref) {
         ? { ref: blocker.ref, title: blocker.title, open: blocker.state === 'open', known: true }
         : { ref: blockerRef, title: typeof blockerRef === 'number' ? `#${blockerRef}` : 'Onbekende Taak', open: true, known: false };
     }),
-    blocking: blocking(issues, issue).map((i) => ({ ref: i.ref, title: i.title })),
+    blocking: blocking(issues, issue).map((i) => ({ ref: i.ref, title: i.title, open: true, known: true })),
   };
 }
 

@@ -7,6 +7,7 @@ import { $, fillSelect, peopleCheckboxes } from './dom.js';
 /** @typedef {import('./quick-add.js').Store} Store */
 /** @typedef {ReturnType<typeof choices>} Choices */
 /** @typedef {import('./blocker-picker.js').BlockerOption} BlockerOption */
+/** @typedef {import('./blocker-picker-view.js').Direction} Direction */
 
 /**
  * The + button on the Taken tab and the bottom sheet it opens.
@@ -31,24 +32,8 @@ export function mountQuickAdd({ getStore, getMe }) {
   let { isEpic, prio, urgentie } = DEFAULTS;
   /** @type {Choices} */
   let offered = { epics: [], mijlpalen: [], people: [] };
-  /** Geblokkeerd door, saved only with the Taak. @type {BlockerOption[]} */
-  let blockedBy = [];
-
-  const blockers = mountBlockerPicker($('qa-blockers'), {
-    search(query) {
-      const store = getStore();
-      if (!store) return [];
-      return blockerOptions(store.getState().issues, { self: null, chosen: blockedBy.map((b) => b.ref) }, query);
-    },
-    onAdd(option) {
-      blockedBy = [...blockedBy, option];
-      renderBlockers();
-    },
-    onRemove(ref) {
-      blockedBy = blockedBy.filter((b) => b.ref !== ref);
-      renderBlockers();
-    },
-  });
+  const blockedBy = linkPicker('qa-blockers', 'geblokkeerd door');
+  const blocks = linkPicker('qa-blocks', 'blokkeert');
 
   $('add-taak').addEventListener('click', () => {
     const store = getStore();
@@ -109,7 +94,8 @@ export function mountQuickAdd({ getStore, getMe }) {
       epic: epic.value === '' ? null : offered.epics[Number(epic.value)].ref,
       mijlpaal: mijlpaal.value === '' ? null : offered.mijlpalen[Number(mijlpaal.value)].number,
       toegewezen: [...people.querySelectorAll('input:checked')].map((box) => /** @type {HTMLInputElement} */ (box).value),
-      blockedBy: blockedBy.map((b) => b.ref),
+      blockedBy: blockedBy.refs(),
+      blocks: blocks.refs(),
     };
   }
 
@@ -126,9 +112,8 @@ export function mountQuickAdd({ getStore, getMe }) {
     error.hidden = true;
     fillSelect(epic, offered.epics, 'Geen Epic');
     fillSelect(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
-    blockedBy = [];
-    blockers.close();
-    renderBlockers();
+    blockedBy.clear();
+    blocks.clear();
     people.replaceChildren(...peopleCheckboxes(offered.people));
     render();
   }
@@ -145,7 +130,38 @@ export function mountQuickAdd({ getStore, getMe }) {
     for (const noun of nouns) noun.textContent = isEpic ? 'Epic' : 'Taak';
   }
 
-  function renderBlockers() {
-    blockers.render(blockedBy.map((b) => ({ ref: b.ref, title: b.title, open: true, known: true })));
+  /**
+   * Geblokkeerd door or Blokkeert, saved only with the Taak. A Taak picked
+   * in one isn't offered in either.
+   * @param {string} id @param {Direction} direction
+   */
+  function linkPicker(id, direction) {
+    /** @type {BlockerOption[]} */
+    let chosen = [];
+    const picker = mountBlockerPicker($(id), {
+      direction,
+      search(query) {
+        const store = getStore();
+        if (!store) return [];
+        return blockerOptions(store.getState().issues, { self: null, linked: [...blockedBy.refs(), ...blocks.refs()] }, query);
+      },
+      onAdd(option) {
+        chosen = [...chosen, option];
+        show();
+      },
+      onRemove(ref) {
+        chosen = chosen.filter((b) => b.ref !== ref);
+        show();
+      },
+    });
+    const show = () => picker.render(chosen.map((b) => ({ ref: b.ref, title: b.title, open: true, known: true })));
+    return {
+      refs: () => chosen.map((b) => b.ref),
+      clear() {
+        chosen = [];
+        picker.close();
+        show();
+      },
+    };
   }
 }
