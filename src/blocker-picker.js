@@ -17,7 +17,7 @@ import { normalise } from './text.js';
  * @returns {BlockerOption[]}
  */
 export function blockerOptions(issues, { self, chosen }, query) {
-  const terms = normalise(query).split(/\s+/).filter(Boolean);
+  const terms = normalise(query).split(/\s+/).filter((t) => t !== '' && t !== '#');
   if (terms.length === 0) return [];
   const blocked = self ? blocking(issues, self) : [];
   return issues

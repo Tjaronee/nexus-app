@@ -59,6 +59,8 @@ export function mountBlockerPicker(root, { search, onAdd, onRemove, onOpen }) {
         if (o.number) pick.append(el('span', 'muted', ` #${o.number}`));
         pick.addEventListener('click', () => {
           close();
+          // The tapped result is gone; keep focus in the picker.
+          add.focus();
           onAdd(o);
         });
         const li = el('li');

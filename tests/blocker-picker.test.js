@@ -35,6 +35,7 @@ const titles = (query, taak = forSelf) => blockerOptions(ISSUES, taak, query).ma
 test('offers nothing until something is typed', () => {
   assert.deepEqual(titles(''), []);
   assert.deepEqual(titles('   '), []);
+  assert.deepEqual(titles('#'), [], 'a # alone is no number yet');
 });
 
 test('finds open Taken by part of the title, ignoring case and accents, sorted by title', () => {
