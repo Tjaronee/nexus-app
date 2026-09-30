@@ -21,16 +21,19 @@ export function mountQuickAdd({ getStore, getMe }) {
   const more = /** @type {HTMLDetailsElement} */ ($('qa-more'));
   const error = $('qa-error');
   const again = $('qa-again');
+  const isEpicChip = $('qa-is-epic');
   const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-qa-prio], [data-qa-urgentie]'));
+  const taakOnly = /** @type {NodeListOf<HTMLElement>} */ (dialog.querySelectorAll('[data-qa-taak-only]'));
+  const nouns = dialog.querySelectorAll('[data-qa-noun]');
 
-  let { prio, urgentie } = DEFAULTS;
+  let { isEpic, prio, urgentie } = DEFAULTS;
   /** @type {Choices} */
   let offered = { epics: [], mijlpalen: [], blockers: [], people: [] };
 
   $('add-taak').addEventListener('click', () => {
     const store = getStore();
     if (!store) return;
-    ({ prio, urgentie } = DEFAULTS);
+    ({ isEpic, prio, urgentie } = DEFAULTS);
     more.open = false;
     clear();
     dialog.showModal();
@@ -46,6 +49,11 @@ export function mountQuickAdd({ getStore, getMe }) {
       renderChips();
     });
   }
+  // Only hides the Taak's choices, so turning Epic off again brings them back.
+  isEpicChip.addEventListener('click', () => {
+    isEpic = !isEpic;
+    renderChips();
+  });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -75,6 +83,7 @@ export function mountQuickAdd({ getStore, getMe }) {
     return {
       title: title.value,
       body: body.value,
+      isEpic,
       prio,
       urgentie,
       epic: epic.value === '' ? null : offered.epics[Number(epic.value)].ref,
@@ -85,7 +94,7 @@ export function mountQuickAdd({ getStore, getMe }) {
   }
 
   /**
-   * Empties every field except the chips, which carry over to the next Taak.
+   * Empties every field except the chips, which carry over to the next one.
    * The choices are fresh, so a Taak just saved can block the next one.
    */
   function clear() {
@@ -101,10 +110,15 @@ export function mountQuickAdd({ getStore, getMe }) {
     renderChips();
   }
 
+  /** An Epic has no Prio, Urgentie or the Taak-only fields (Nexus ADR 0004). */
   function renderChips() {
+    isEpicChip.setAttribute('aria-pressed', String(isEpic));
     for (const chip of chips) {
       const { qaPrio, qaUrgentie } = chip.dataset;
       chip.setAttribute('aria-pressed', String(qaPrio ? qaPrio === prio : qaUrgentie === urgentie));
+      chip.disabled = isEpic;
     }
+    for (const field of taakOnly) field.hidden = isEpic;
+    for (const noun of nouns) noun.textContent = isEpic ? 'Epic' : 'Taak';
   }
 }

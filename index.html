@@ -168,11 +168,11 @@
     </nav>
 
     <dialog id="quick-add" class="sheet" aria-labelledby="quick-add-title">
-      <h2 id="quick-add-title">Nieuwe Taak</h2>
+      <h2 id="quick-add-title">Nieuwe <span data-qa-noun>Taak</span></h2>
       <form id="quick-add-form" class="quick-add" novalidate>
         <input id="qa-title" class="field" type="text" autocomplete="off" enterkeyhint="done"
                placeholder="Wat moet er gebeuren?" aria-label="Titel" autofocus>
-        <p id="qa-error" class="error" role="alert" hidden>Geef de Taak een titel.</p>
+        <p id="qa-error" class="error" role="alert" hidden>Geef de <span data-qa-noun>Taak</span> een titel.</p>
         <div class="chips" role="group" aria-label="Prio en Urgentie">
           <button type="button" class="chip" data-qa-prio="laag" aria-label="Prio laag">laag</button>
           <button type="button" class="chip" data-qa-prio="middel" aria-label="Prio middel">middel</button>
@@ -181,21 +181,23 @@
           <button type="button" class="chip" data-qa-urgentie="nu" aria-label="Urgentie nu">nu</button>
           <button type="button" class="chip" data-qa-urgentie="binnenkort" aria-label="Urgentie binnenkort">binnenkort</button>
           <button type="button" class="chip" data-qa-urgentie="ooit" aria-label="Urgentie ooit">ooit</button>
+          <span class="chips__gap" aria-hidden="true"></span>
+          <button id="qa-is-epic" type="button" class="chip" aria-pressed="false">Epic</button>
         </div>
         <details id="qa-more" class="more">
           <summary>meer</summary>
           <label for="qa-body">Beschrijving</label>
           <textarea id="qa-body" class="field" rows="3"></textarea>
-          <label for="qa-epic">Epic</label>
-          <select id="qa-epic" class="field"></select>
+          <label for="qa-epic" data-qa-taak-only>Epic</label>
+          <select id="qa-epic" class="field" data-qa-taak-only></select>
           <label for="qa-mijlpaal">Mijlpaal</label>
           <select id="qa-mijlpaal" class="field"></select>
-          <fieldset>
+          <fieldset data-qa-taak-only>
             <legend>Toegewezen</legend>
             <div id="qa-people" class="people"></div>
           </fieldset>
-          <label for="qa-blocked">Geblokkeerd door</label>
-          <select id="qa-blocked" class="field" multiple size="4"></select>
+          <label for="qa-blocked" data-qa-taak-only>Geblokkeerd door</label>
+          <select id="qa-blocked" class="field" multiple size="4" data-qa-taak-only></select>
         </details>
         <div class="actions">
           <button type="submit" class="primary">Opslaan</button>

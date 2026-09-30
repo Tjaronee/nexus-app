@@ -1,4 +1,4 @@
-import { kindOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
+import { kindOf, EPIC_LABEL, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -7,10 +7,12 @@ import { kindOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 /** @typedef {import('./data/store.js').Milestone} Milestone */
 /** @typedef {ReturnType<import('./data/store.js').createStore>} Store */
 /**
- * What the quick-add sheet has filled in. `toegewezen` holds logins.
+ * What the quick-add sheet has filled in. `toegewezen` holds logins. With
+ * `isEpic` it makes an Epic, and only the title, body and Mijlpaal count.
  * @typedef {{
  *   title: string,
  *   body: string,
+ *   isEpic: boolean,
  *   prio: Prio,
  *   urgentie: Urgentie,
  *   epic: IssueRef | null,
@@ -24,6 +26,7 @@ import { kindOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 export const DEFAULTS = {
   title: '',
   body: '',
+  isEpic: false,
   prio: 'middel',
   urgentie: 'binnenkort',
   epic: null,
@@ -35,7 +38,8 @@ export const DEFAULTS = {
 /**
  * Creates the Taak, then puts it under its Epic and records what blocks it.
  * These are queued in order, so they work offline and for an Epic or blocker
- * that is itself still being created. Returns the new Taak's ref, or null
+ * that is itself still being created. An Epic gets the Epic label and no
+ * Prio or Urgentie (Nexus ADR 0004). Returns the new issue's ref, or null
  * when the title is blank.
  * @param {Store} store
  * @param {Draft} draft
@@ -44,6 +48,9 @@ export const DEFAULTS = {
 export function saveTaak(store, draft) {
   const title = draft.title.trim();
   if (!title) return null;
+  if (draft.isEpic) {
+    return store.create({ title, body: draft.body.trim(), labels: [EPIC_LABEL], milestone: draft.mijlpaal });
+  }
   const ref = store.create({
     title,
     body: draft.body.trim(),
