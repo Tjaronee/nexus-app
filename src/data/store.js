@@ -15,7 +15,13 @@ import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
  */
 /** @typedef {{ title?: string, description?: string, state?: 'open' | 'closed' }} MijlpaalFields */
 /** @typedef {{ type: 'mijlpaal', action: 'create' | 'edit' | 'delete', number: number | null }} MijlpaalChange */
-/** @typedef {'saved' | 'refused' | 'offline'} MijlpaalResult */
+/** @typedef {{ type: 'label', action: 'create' | 'delete', name: string }} LabelChange */
+/**
+ * How an online-only change went: GitHub has it, GitHub refused it (the
+ * failure banner says so), or there was no connection and nothing happened.
+ * @typedef {'saved' | 'refused' | 'offline'} ChangeResult
+ */
+/** @typedef {ChangeResult} MijlpaalResult */
 /** @typedef {{ id: number | null, body: string, author: Person | null, createdAt: string, pending: boolean }} Comment */
 /** @typedef {import('./ops.js').Op} Op */
 /** @typedef {import('./ops.js').QueuedOp} QueuedOp */
@@ -26,6 +32,8 @@ const REPO = `/repos/${NEXUS_OWNER}/${NEXUS_REPO}`;
 const CACHE_KEY = 'nexus.cache';
 const QUEUE_KEY = 'nexus.queue';
 const MILESTONES_PATH = `${REPO}/milestones?state=all&per_page=100`;
+const LABELS_PATH = `${REPO}/labels?per_page=100`;
+const ISSUES_PATH = `${REPO}/issues?state=all&per_page=100&sort=created&direction=asc`;
 
 /**
  * The single way the app reads and writes Nexus.
@@ -66,7 +74,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   /** @type {Promise<void> | null} */
   let flushAgain = null;
   /** Changes GitHub refused, so the screen can say they didn't happen. */
-  /** @type {{ op: Op | MijlpaalChange, status: number }[]} */
+  /** @type {{ op: Op | MijlpaalChange | LabelChange, status: number }[]} */
   let failed = [];
   /** Comments per issue number, loaded when an issue is opened. */
   /** @type {Map<number, Comment[]>} */
@@ -279,19 +287,20 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   }
 
   /**
-   * Creates, edits or deletes a Mijlpaal. Unlike issue changes these are not
+   * Sends a change to Mijlpalen or labels. Unlike issue changes these are not
    * queued: they are rare, and the queue is built around issues. So the
-   * change happens now or not at all, and the list only changes once GitHub
-   * has it.
-   * @param {MijlpaalChange} change
+   * change happens now or not at all, and the lists only change once GitHub
+   * has it. Returns GitHub's answer when it accepted the change.
+   * @param {MijlpaalChange | LabelChange} change
+   * @param {string} path
    * @param {'POST' | 'PATCH' | 'DELETE'} method
    * @param {Record<string, string>} [fields]
-   * @returns {Promise<MijlpaalResult>}
+   * @returns {Promise<Response | 'refused' | 'offline'>}
    */
-  async function changeMijlpaal(change, method, fields) {
+  async function sendNow(change, path, method, fields) {
     let res;
     try {
-      res = await github.request(`${REPO}/milestones${change.number === null ? '' : `/${change.number}`}`, {
+      res = await github.request(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: fields === undefined ? undefined : JSON.stringify(fields),
@@ -311,9 +320,22 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       changed();
       return 'refused';
     }
-    // A refresh under way may have read the Mijlpalen before this change;
-    // it must not put the old ones back.
+    // A refresh under way may have read the lists before this change; it
+    // must not put the old ones back.
     acceptedWrites++;
+    return res;
+  }
+
+  /**
+   * Creates, edits or deletes a Mijlpaal.
+   * @param {MijlpaalChange} change
+   * @param {'POST' | 'PATCH' | 'DELETE'} method
+   * @param {Record<string, string>} [fields]
+   * @returns {Promise<ChangeResult>}
+   */
+  async function changeMijlpaal(change, method, fields) {
+    const res = await sendNow(change, `${REPO}/milestones${change.number === null ? '' : `/${change.number}`}`, method, fields);
+    if (typeof res === 'string') return res;
     responses.delete(MILESTONES_PATH);
     if (method === 'DELETE') {
       milestones = milestones.filter((m) => m.number !== change.number);
@@ -326,6 +348,34 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     changed();
     // Issues show their Mijlpaal's title too, so fetch both. A refresh under
     // way drops its answer for this change, so a new one follows it.
+    void (refreshing ?? Promise.resolve()).then(refresh);
+    return 'saved';
+  }
+
+  /**
+   * Creates or deletes a label in Nexus, such as a Soort's or a Plek's.
+   * @param {LabelChange} change
+   * @returns {Promise<ChangeResult>}
+   */
+  async function changeLabel(change) {
+    const { action, name } = change;
+    const res =
+      action === 'create'
+        ? await sendNow(change, `${REPO}/labels`, 'POST', { name })
+        : await sendNow(change, `${REPO}/labels/${encodeURIComponent(name)}`, 'DELETE');
+    if (typeof res === 'string') return res;
+    responses.delete(LABELS_PATH);
+    if (action === 'create') {
+      labels = [...labels.filter((l) => l !== name), name];
+    } else {
+      labels = labels.filter((l) => l !== name);
+      // GitHub takes it off every issue, closed ones too; show that at once.
+      // Their pages' ETags change with it, so the refresh fetches them anew.
+      base = base.map((i) => (i.labels.includes(name) ? { ...i, labels: i.labels.filter((l) => l !== name) } : i));
+    }
+    persistCache();
+    changed();
+    // A refresh under way drops its answer for this change, so a new one follows it.
     void (refreshing ?? Promise.resolve()).then(refresh);
     return 'saved';
   }
@@ -350,7 +400,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       const fetched = [];
       let anyChanged = false;
       /** @type {string | null} */
-      let path = `${REPO}/issues?state=all&per_page=100&sort=created&direction=asc`;
+      let path = ISSUES_PATH;
       while (path) {
         paths.push(path);
         const page = await conditionalGet(path, toIssues);
@@ -360,7 +410,8 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       }
       paths.push(MILESTONES_PATH);
       const ms = await conditionalGet(MILESTONES_PATH, toMilestones);
-      const ls = await conditionalGet(`${REPO}/labels?per_page=100`, (raw) => raw.map((/** @type {any} */ l) => l.name));
+      paths.push(LABELS_PATH);
+      const ls = await conditionalGet(LABELS_PATH, (raw) => raw.map((/** @type {any} */ l) => l.name));
       const fresh = anyChanged ? await withBlockers(fetched) : null;
       online = true;
       if (acceptedWrites !== writesBefore) {
@@ -370,10 +421,10 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       } else {
         if (fresh) base = fresh;
         milestones = ms.body;
+        labels = ls.body;
       }
       refreshed = true;
       if (queue.length > 0) void flush();
-      labels = ls.body;
       if (anyChanged || ms.changed || ls.changed) persistCache();
     } catch (err) {
       // An expired token is handled by the client's onUnauthorized; a GitHub
@@ -478,6 +529,17 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     editMijlpaal: (number, fields) => changeMijlpaal({ type: 'mijlpaal', action: 'edit', number }, 'PATCH', fields),
     /** Only for a Mijlpaal no issue has: GitHub would strip it from them. @param {number} number */
     deleteMijlpaal: (number) => changeMijlpaal({ type: 'mijlpaal', action: 'delete', number }, 'DELETE'),
+    /**
+     * A new label in Nexus, such as `soort: klusjes`. Online only, like Mijlpalen.
+     * @param {string} name
+     */
+    createLabel: (name) => changeLabel({ type: 'label', action: 'create', name }),
+    /**
+     * Deletes a label from Nexus, such as a Soort's or a Plek's. GitHub takes
+     * it off every issue, closed ones too.
+     * @param {string} name exactly as the label is written
+     */
+    deleteLabel: (name) => changeLabel({ type: 'label', action: 'delete', name }),
     /** @param {IssueRef} ref @param {number | null} number */
     setMilestone: (ref, number) =>
       enqueue({

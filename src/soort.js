@@ -43,6 +43,50 @@ export function knownSoorten(labels, issues = []) {
 }
 
 /**
+ * The Soorten section on Indeling: every Soort alphabetically, with the
+ * labels it is written as and how many open Taken have it. Closed issues
+ * count for which labels exist, as GitHub's label list is only read in part.
+ * @param {string[]} labels all label names in Nexus
+ * @param {Issue[]} issues
+ * @returns {{ soort: string, labels: string[], open: number }[]}
+ */
+export function soortenOverview(labels, issues) {
+  const issueLabels = issues.flatMap((i) => i.labels);
+  const written = [...new Set([...labels, ...issueLabels])].filter((l) => l.startsWith(SOORT_PREFIX));
+  /** @type {Map<string, string[]>} */
+  const bySoort = new Map();
+  for (const label of written) {
+    const soort = normaliseSoort(label.slice(SOORT_PREFIX.length));
+    if (soort) bySoort.set(soort, [...(bySoort.get(soort) ?? []), label]);
+  }
+  const open = issues.filter((i) => i.state === 'open' && kindOf(i) === 'taak').map(soortOf);
+  return [...bySoort]
+    .map(([soort, labels]) => ({ soort, labels, open: open.filter((s) => s === soort).length }))
+    .sort((a, b) => byName(a.soort, b.soort));
+}
+
+/**
+ * The label for a Soort typed on Indeling, or why there is none: no name, or
+ * one that is, normalised, already a Soort.
+ * @param {string} name as typed
+ * @param {string[]} labels all label names in Nexus
+ * @param {Issue[]} [issues]
+ * @returns {{ label: string } | { problem: 'empty' } | { problem: 'exists', soort: string }}
+ */
+export function newSoort(name, labels, issues = []) {
+  const soort = normaliseSoort(name);
+  if (!soort) return { problem: 'empty' };
+  if (soortenOverview(labels, issues).some((s) => s.soort === soort)) return { problem: 'exists', soort };
+  return { label: SOORT_PREFIX + soort };
+}
+
+/** What deleting a Soort does to its open Taken, for the confirmation. @param {number} open */
+export function deleteEffect(open) {
+  if (open === 0) return 'Er zijn geen open Taken met deze Soort.';
+  return open === 1 ? '1 open Taak wordt Geen soort.' : `${open} open Taken worden Geen soort.`;
+}
+
+/**
  * The Soort after tapping a Soort chip on quick-add or the detail screen:
  * the tapped one, or none when it was already chosen.
  * @param {SoortKey} current @param {string} tapped

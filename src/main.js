@@ -6,6 +6,7 @@ import { createSession } from './session.js';
 import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
 import { mountMijlpalen } from './mijlpalen-view.js';
+import { mountSoorten } from './soorten-view.js';
 import { mountBoodschappen } from './boodschappen-view.js';
 import { mountBoodschapAdd } from './boodschap-add-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
@@ -46,6 +47,7 @@ const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank
 const quickAdd = mountQuickAdd({ getStore: () => store, getMe });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close, onFilter: quickAdd.setFilter });
 const mijlpalen = mountMijlpalen({ getStore: () => store, onOpen: detail.open, onClose: closing.close });
+const soorten = mountSoorten({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
 
@@ -76,7 +78,7 @@ function render() {
     const notice = $('login-notice');
     notice.textContent = EXPIRED_NOTICE;
     notice.hidden = !expired;
-    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'mijlpaal-form']) {
+    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'mijlpaal-form', 'soort-form']) {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }
@@ -108,6 +110,7 @@ function renderLists() {
   const state = store?.getState();
   taken.update(state?.issues ?? [], getMe(), state?.labels ?? []);
   mijlpalen.update(state?.issues ?? [], state?.milestones ?? [], state?.online ?? true);
+  soorten.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
   boodschappen.render();
   boodschapAdd.render();
 }
