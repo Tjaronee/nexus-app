@@ -370,9 +370,8 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     } else {
       labels = labels.filter((l) => l !== name);
       // GitHub takes it off every issue, closed ones too; show that at once.
-      // The cached issue pages predate that, so fetch them in full.
+      // Their pages' ETags change with it, so the refresh fetches them anew.
       base = base.map((i) => (i.labels.includes(name) ? { ...i, labels: i.labels.filter((l) => l !== name) } : i));
-      for (const path of responses.keys()) if (path.startsWith(`${REPO}/issues?`)) responses.delete(path);
     }
     persistCache();
     changed();

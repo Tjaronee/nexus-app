@@ -84,6 +84,7 @@ test('of two hand-made soort: labels only the chosen one stays, as it was writte
     remove: ['soort: sociaal', 'soort: klusjes'],
   });
 });
+
 /** A Taak or Boodschap with these labels. @param {string[]} labels @param {'open' | 'closed'} [state] */
 const withState = (labels, state = 'open') =>
   /** @type {import('../src/data/model.js').Issue} */ (/** @type {unknown} */ ({ labels, state }));

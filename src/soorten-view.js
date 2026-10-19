@@ -70,7 +70,7 @@ export function mountSoorten({ getStore }) {
   async function remove(row) {
     if (!confirm(`Soort "${row.soort}" verwijderen? ${deleteEffect(row.open)} Dit kan niet ongedaan worden gemaakt.`)) return;
     // A Soort written by hand in two ways has two labels; both go.
-    await change(async (store) => {
+    const result = await change(async (store) => {
       /** @type {ChangeResult} */
       let result = 'saved';
       for (const label of row.labels) {
@@ -79,6 +79,8 @@ export function mountSoorten({ getStore }) {
       }
       return result;
     });
+    // Its button is gone, and focus with it.
+    if (result === 'saved') $('s-add').focus();
   }
 
   /**
@@ -107,8 +109,15 @@ export function mountSoorten({ getStore }) {
     // The Indeling notice is behind the sheet; say it in the sheet too.
     if (!online && dialog.open) showFormError('Geen verbinding: opslaan kan pas als je weer online bent.');
     const rows = soortenOverview(labels, issues);
-    $('s-list').replaceChildren(...rows.map((row) => rowElement(row, locked, () => void remove(row))));
+    // The list is redrawn on every refresh; keep focus where it was, or on
+    // + Soort when the focused Soort was just deleted.
+    const focused = /** @type {HTMLElement | null} */ (document.activeElement)?.dataset?.soort;
+    const list = $('s-list');
+    list.replaceChildren(...rows.map((row) => rowElement(row, locked, () => void remove(row))));
     $('s-empty').hidden = rows.length > 0;
+    if (focused === undefined) return;
+    const same = [...list.querySelectorAll('button')].find((b) => b.dataset.soort === focused);
+    (same ?? $('s-add')).focus();
   }
 
   render();
@@ -135,6 +144,7 @@ function rowElement(row, locked, onRemove) {
   const li = el('li', 'soort-row');
   const remove = /** @type {HTMLButtonElement} */ (el('button', 'link soort-row__remove', 'Verwijderen'));
   remove.type = 'button';
+  remove.dataset.soort = row.soort;
   remove.disabled = locked;
   remove.setAttribute('aria-label', `Soort ${row.soort} verwijderen`);
   remove.addEventListener('click', onRemove);
