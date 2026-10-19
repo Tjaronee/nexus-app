@@ -45,7 +45,7 @@ const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addF
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
 const quickAdd = mountQuickAdd({ getStore: () => store, getMe });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close, onFilter: quickAdd.setFilter });
-const mijlpalen = mountMijlpalen({ onOpen: detail.open, onClose: closing.close });
+const mijlpalen = mountMijlpalen({ getStore: () => store, onOpen: detail.open, onClose: closing.close });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
 
@@ -76,7 +76,7 @@ function render() {
     const notice = $('login-notice');
     notice.textContent = EXPIRED_NOTICE;
     notice.hidden = !expired;
-    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap']) {
+    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'mijlpaal-form']) {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }
@@ -107,7 +107,7 @@ function connect() {
 function renderLists() {
   const state = store?.getState();
   taken.update(state?.issues ?? [], getMe(), state?.labels ?? []);
-  mijlpalen.update(state?.issues ?? [], state?.milestones ?? []);
+  mijlpalen.update(state?.issues ?? [], state?.milestones ?? [], state?.online ?? true);
   boodschappen.render();
   boodschapAdd.render();
 }

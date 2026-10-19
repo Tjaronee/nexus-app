@@ -15,8 +15,8 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
   const blockedBy = new Map();
   /** @type {Map<number, number>} child number → parent number */
   const parents = new Map();
-  /** @type {{ number: number, title: string, state: string, description: string }[]} */
-  const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: 'open', description: '' }];
+  /** @type {{ number: number, title: string, state: string, description: string, due_on: string | null }[]} */
+  const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: 'open', description: '', due_on: null }];
   const labels = [
     'prio: low', 'prio: medium', 'prio: high',
     'urgency: now', 'urgency: soon', 'urgency: whenever',
@@ -68,12 +68,28 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     return issue;
   }
 
-  /** Seeds a milestone. @param {string} title @param {string} [description] */
-  function addMilestone(title, description = '') {
-    const milestone = { number: Math.max(0, ...milestones.map((ms) => ms.number)) + 1, title, state: 'open', description };
+  /** Seeds a milestone. @param {string} title @param {string} [description] @param {string | null} [dueOn] */
+  function addMilestone(title, description = '', dueOn = null) {
+    const number = Math.max(0, ...milestones.map((ms) => ms.number)) + 1;
+    const milestone = { number, title, state: 'open', description, due_on: dueOn };
     milestones.push(milestone);
     return milestone;
   }
+
+  /** A milestone as GitHub sends it, counting its issues and pull requests. @param {any} milestone */
+  function presentMilestone(milestone) {
+    const items = issues.filter((i) => i.milestone?.number === milestone.number);
+    return {
+      ...milestone,
+      open_issues: items.filter((i) => i.state === 'open').length,
+      closed_issues: items.filter((i) => i.state === 'closed').length,
+    };
+  }
+
+  /** @param {string} title @param {number} [except] */
+  const titleTaken = (title, except) => milestones.some((ms) => ms.title === title && ms.number !== except);
+  const duplicateTitle = () =>
+    reply(422, { message: 'Validation Failed', errors: [{ resource: 'Milestone', code: 'already_exists', field: 'title' }] });
 
   /** A pull request, which the issues endpoint also returns. */
   function addPullRequest(/** @type {string} */ title) {
@@ -160,19 +176,26 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     let match;
 
     if (m === 'GET' && path === `${REPO}/issues`) return listIssues(req, url);
-    if (m === 'GET' && path === `${REPO}/milestones`) return conditional(req, milestones);
+    if (m === 'GET' && path === `${REPO}/milestones`) return conditional(req, milestones.map(presentMilestone));
     if (m === 'POST' && path === `${REPO}/milestones`) {
-      if (milestones.some((ms) => ms.title === body.title)) {
-        return reply(422, { message: 'Validation Failed', errors: [{ resource: 'Milestone', code: 'already_exists', field: 'title' }] });
-      }
-      return reply(201, addMilestone(body.title, body.description ?? ''));
+      if (titleTaken(body.title)) return duplicateTitle();
+      return reply(201, presentMilestone(addMilestone(body.title, body.description ?? '', body.due_on ?? null)));
     }
-    if (m === 'PATCH' && (match = path.match(new RegExp(`^${REPO}/milestones/(\\d+)$`)))) {
+    if ((match = path.match(new RegExp(`^${REPO}/milestones/(\\d+)$`)))) {
       const number = Number(match[1]);
       const milestone = milestones.find((ms) => ms.number === number);
       if (!milestone) return reply(404, { message: 'Not Found' });
-      if ('description' in body) milestone.description = body.description;
-      return reply(200, milestone);
+      if (m === 'PATCH') {
+        if ('title' in body && titleTaken(body.title, number)) return duplicateTitle();
+        for (const key of /** @type {const} */ (['title', 'description', 'state'])) if (key in body) milestone[key] = body[key];
+        return reply(200, presentMilestone(milestone));
+      }
+      if (m === 'DELETE') {
+        // GitHub deletes it even when issues have it; they lose their milestone.
+        milestones.splice(milestones.indexOf(milestone), 1);
+        for (const issue of issues) if (issue.milestone?.number === number) issue.milestone = null;
+        return reply(204);
+      }
     }
     if (m === 'GET' && path === `${REPO}/labels`) return conditional(req, labels);
     if (m === 'POST' && path === `${REPO}/labels`) {

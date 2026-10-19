@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TABS, initialTab } from '../src/tabs.js';
 
-test('tabs are Taken, Boodschappen, Mijlpalen in that order', () => {
+test('tabs are Taken, Boodschappen, Indeling in that order', () => {
   assert.deepEqual(
     TABS.map((t) => t.label),
-    ['Taken', 'Boodschappen', 'Mijlpalen'],
+    ['Taken', 'Boodschappen', 'Indeling'],
   );
 });
 

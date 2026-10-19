@@ -139,10 +139,11 @@ function toggle(list, value) {
  * @param {Row[]} rows
  * @param {(ref: IssueRef) => void} onOpen
  * @param {(issue: Issue) => void} onClose
+ * @param {'h2' | 'h3'} [heading] h3 where the screen already has an h2 above it
  */
-function groupElement(soort, rows, onOpen, onClose) {
+export function groupElement(soort, rows, onOpen, onClose, heading = 'h2') {
   const section = el('section', 'group soort');
-  section.append(el('h2', undefined, soort ?? GEEN_SOORT));
+  section.append(el(heading, undefined, soort ?? GEEN_SOORT));
   const list = el('ul', 'taken');
   list.append(...rows.map((row) => rowElement(row, onOpen, onClose)));
   section.append(list);

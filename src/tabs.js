@@ -4,7 +4,8 @@
 export const TABS = [
   { id: 'taken', label: 'Taken' },
   { id: 'boodschappen', label: 'Boodschappen' },
-  { id: 'mijlpalen', label: 'Mijlpalen' },
+  // Was the Mijlpalen tab; the id stays so a remembered last tab still works.
+  { id: 'mijlpalen', label: 'Indeling' },
 ];
 
 export const LAST_TAB_KEY = 'nexus.lastTab';
