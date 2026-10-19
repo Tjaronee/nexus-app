@@ -1,4 +1,4 @@
-import { detailOf, assigneeChange, editChoices } from './detail.js';
+import { detailOf, assigneeChange, editChoices, reactieBody, postReactie } from './detail.js';
 import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
 import { parseMarkdown, toggleTask } from './markdown.js';
@@ -30,6 +30,8 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   const bodyEditor = $('d-body-editor');
   const bodyText = /** @type {HTMLTextAreaElement} */ ($('d-body-text'));
   const copy = /** @type {HTMLButtonElement} */ ($('d-copy'));
+  const reactieText = /** @type {HTMLTextAreaElement} */ ($('d-reactie-text'));
+  const reactiePost = /** @type {HTMLButtonElement} */ ($('d-reactie-post'));
   const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-d-prio], [data-d-urgentie]'));
 
   /** @type {IssueRef | null} */
@@ -71,6 +73,8 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
 
   /** @param {IssueRef} next */
   function show(next) {
+    // A half-written Reactie belongs to its Taak: don't carry it to another one.
+    if (next !== ref) clearReactie();
     ref = next;
     bodyEditor.hidden = true;
     bodyView.hidden = false;
@@ -187,6 +191,25 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     onRemove: (blocked) => edit((store, r) => store.removeBlockedBy(blocked, r)),
     onOpen: open,
   });
+
+  // Reacties: posting queues it, so it shows at once as "wordt verstuurd"
+  // (the store change redraws the list) and goes out once online.
+  reactieText.addEventListener('input', () => {
+    reactiePost.disabled = reactieBody(reactieText.value) === null;
+    fitHeight(reactieText);
+  });
+  $('d-reactie-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    let posted = false;
+    edit((store, r) => (posted = postReactie(store, r, reactieText.value)));
+    if (posted) clearReactie();
+  });
+
+  function clearReactie() {
+    reactieText.value = '';
+    reactieText.style.height = '';
+    reactiePost.disabled = true;
+  }
 
   // Drawing
 

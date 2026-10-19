@@ -610,6 +610,8 @@ textarea.field { resize: vertical; }
 .comment { padding: 0.625rem 0.875rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
 .comment__head { font-size: 0.8125rem; }
 .comment__author { font-weight: 600; }
+.reactie-form { display: grid; gap: 0.5rem; }
+.reactie-form .primary:disabled { cursor: default; }
 
 .markdown { overflow-wrap: anywhere; }
 .markdown > :first-child { margin-top: 0; }
