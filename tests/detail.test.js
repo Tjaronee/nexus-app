@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detailOf, assigneeChange, editChoices } from '../src/detail.js';
+import { detailOf, assigneeChange, editChoices, reactieBody, postReactie } from '../src/detail.js';
+import { createStore } from '../src/data/store.js';
+import { createGitHub } from '../src/github.js';
+import { createFakeGitHub } from './fake-github.js';
+import { memoryStorage } from './memory-storage.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
 
@@ -83,4 +87,72 @@ test('someone Toegewezen who is not offered yet is added to the people', () => {
   const c = editChoices({ issues: [], milestones: [] }, taak, 'tjaronee');
   assert.deepEqual(c.people, ['tjaronee', 'gast']);
   assert.deepEqual(c.toegewezen, ['gast']);
+});
+
+// Reacties
+
+function storeSetup() {
+  const server = createFakeGitHub();
+  const github = createGitHub({ token: 'tok', fetch: server.fetch, onUnauthorized: () => {} });
+  let n = 0;
+  const store = createStore({ github, storage: memoryStorage(), newId: () => `cid-${++n}` });
+  return { server, store };
+}
+
+/** Lets pending promise callbacks run. */
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+/** @param {string} body */
+const withoutCid = (body) => body.replace(/\s*<!-- cid:.* -->$/, '');
+
+test('a Reactie is the typed text, trimmed; only whitespace is no Reactie', () => {
+  assert.equal(reactieBody('  gebeld, ze bellen terug \n'), 'gebeld, ze bellen terug');
+  assert.equal(reactieBody('- [ ] terugbellen\n- [x] mailen'), '- [ ] terugbellen\n- [x] mailen');
+  assert.equal(reactieBody(''), null);
+  assert.equal(reactieBody(' \n\t '), null);
+});
+
+test('posting a Reactie shows it as wordt verstuurd until the queue has sent it', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Makelaar bellen' });
+  await store.refresh();
+  await store.loadComments(taak.number);
+
+  assert.equal(postReactie(store, taak.number, ' gebeld, ze bellen terug '), true);
+  assert.deepEqual(store.comments(taak.number).map((c) => [c.body, c.pending]), [['gebeld, ze bellen terug', true]]);
+
+  await store.flush();
+  assert.deepEqual(server.comments.get(taak.number)?.map((c) => withoutCid(c.body)), ['gebeld, ze bellen terug']);
+  assert.deepEqual(store.comments(taak.number).map((c) => [c.body, c.pending]), [['gebeld, ze bellen terug', false]]);
+});
+
+test('an empty Reactie posts nothing', () => {
+  const { store } = storeSetup();
+  assert.equal(postReactie(store, 1, '   '), false);
+  assert.equal(store.getState().pending, 0);
+});
+
+test('a Reactie written offline waits, and is sent once the phone is back online', async (t) => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Makelaar bellen' });
+  const win = new EventTarget();
+  const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const stop = store.start({ win, doc, intervalMs: 20_000 });
+  await settle();
+
+  server.state.offline = true;
+  postReactie(store, taak.number, 'gebeld, ze bellen terug');
+  await settle();
+  assert.equal(server.comments.get(taak.number)?.length ?? 0, 0);
+  assert.deepEqual(store.comments(taak.number).map((c) => c.pending), [true]);
+
+  server.state.offline = false;
+  win.dispatchEvent(new Event('online'));
+  await settle();
+  await store.flush();
+
+  assert.deepEqual(server.comments.get(taak.number)?.map((c) => withoutCid(c.body)), ['gebeld, ze bellen terug']);
+  assert.deepEqual(store.comments(taak.number).map((c) => [c.body, c.pending]), [['gebeld, ze bellen terug', false]]);
+  stop();
 });

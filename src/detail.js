@@ -71,3 +71,28 @@ export function editChoices(state, issue, me) {
 
 /** GitHub logins ignore case. @param {string[]} logins @param {string} login */
 const has = (logins, login) => logins.some((l) => l.toLowerCase() === login.toLowerCase());
+
+/**
+ * The Reactie to post for what was typed, or null when there is only
+ * whitespace: then there is nothing to say, and Plaatsen stays off.
+ * @param {string} text
+ */
+export function reactieBody(text) {
+  const body = text.trim();
+  return body === '' ? null : body;
+}
+
+/**
+ * Posts a Reactie on the Taak. It is queued, so it shows at once as
+ * "wordt verstuurd" and goes out when the phone is online. False, posting
+ * nothing, when the text is empty.
+ * @param {import('./quick-add.js').Store} store
+ * @param {IssueRef} ref
+ * @param {string} text
+ */
+export function postReactie(store, ref, text) {
+  const body = reactieBody(text);
+  if (body === null) return false;
+  store.comment(ref, body);
+  return true;
+}
