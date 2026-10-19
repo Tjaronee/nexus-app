@@ -43,11 +43,11 @@ const getMe = () => session.current()?.user.login ?? '';
 const kennisbank = mountKennisbank({ getStore: () => store });
 const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addFile });
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
-const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close });
+const quickAdd = mountQuickAdd({ getStore: () => store, getMe });
+const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close, onFilter: quickAdd.setFilter });
 const mijlpalen = mountMijlpalen({ getStore: () => store, onOpen: detail.open, onClose: closing.close });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
-mountQuickAdd({ getStore: () => store, getMe });
 
 session.subscribe(render);
 session.subscribe(connect);

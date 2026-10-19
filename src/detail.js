@@ -1,5 +1,6 @@
 import { blocking, matchesRef, prioOf, urgentieOf } from './data/model.js';
 import { choices } from './quick-add.js';
+import { soortOf, tapSoort, soortChange } from './soort.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -20,6 +21,7 @@ export function detailOf(issues, ref) {
     issue,
     prio: prioOf(issue),
     urgentie: urgentieOf(issue),
+    soort: soortOf(issue),
     blockedBy: issue.blockedBy.map((blockerRef) => {
       const blocker = issues.find((i) => matchesRef(i, blockerRef));
       return blocker
@@ -43,16 +45,19 @@ export function assigneeChange(current, chosen) {
 }
 
 /**
- * What the Mijlpaal and Toegewezen pickers offer for this Taak, and what it
- * has now: `mijlpaal` is an index into the list (-1 for none), `toegewezen`
- * the logins to tick. A Mijlpaal it belongs to stays choosable after it
- * closes, and so does anyone it is Toegewezen to.
- * @param {{ issues: Issue[], milestones: Milestone[] }} state
+ * What the Soort chips and the Mijlpaal and Toegewezen pickers offer for this
+ * Taak, and what it has now: `mijlpaal` is an index into the list (-1 for
+ * none), `toegewezen` the logins to tick. A Mijlpaal it belongs to stays
+ * choosable after it closes, and so do its Soort and anyone it is
+ * Toegewezen to.
+ * @param {{ issues: Issue[], milestones: Milestone[], labels?: string[] }} state
  * @param {Issue} issue
  * @param {string} me the signed-in login
  */
 export function editChoices(state, issue, me) {
-  const { mijlpalen, people } = choices(state, me);
+  const { mijlpalen, people, soorten } = choices(state, me);
+  const soort = soortOf(issue);
+  if (soort && !soorten.includes(soort)) soorten.push(soort);
   const milestone = issue.milestone;
   if (milestone && !mijlpalen.some((m) => m.number === milestone.number)) mijlpalen.push(milestone);
   const assigned = issue.assignees.map((a) => a.login);
@@ -62,7 +67,22 @@ export function editChoices(state, issue, me) {
     mijlpaal: milestone ? mijlpalen.findIndex((m) => m.number === milestone.number) : -1,
     people,
     toegewezen: people.filter((login) => has(assigned, login)),
+    soorten,
   };
+}
+
+/**
+ * Taps a Soort chip on the detail screen: moves the Taak to that Soort, or to
+ * Geen soort when it already had it. Queued, so it works offline.
+ * @param {import('./quick-add.js').Store} store
+ * @param {IssueRef} ref
+ * @param {string} tapped
+ */
+export function tapSoortChip(store, ref, tapped) {
+  const detail = detailOf(store.getState().issues, ref);
+  if (!detail) return;
+  const change = soortChange(detail.issue.labels, tapSoort(detail.soort, tapped));
+  if (change.add.length + change.remove.length > 0) store.editLabels(ref, change);
 }
 
 /** GitHub logins ignore case. @param {string[]} logins @param {string} login */

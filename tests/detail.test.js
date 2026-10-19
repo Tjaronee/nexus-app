@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detailOf, assigneeChange, editChoices, reactieBody, postReactie } from '../src/detail.js';
+import { detailOf, assigneeChange, editChoices, reactieBody, postReactie, tapSoortChip } from '../src/detail.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -148,4 +148,66 @@ test('a Reactie written offline waits, and is sent once the phone is back online
   assert.deepEqual(server.comments.get(taak.number)?.map((c) => withoutCid(c.body)), ['gebeld, ze bellen terug']);
   assert.deepEqual(store.comments(taak.number).map((c) => [c.body, c.pending]), [['gebeld, ze bellen terug', false]]);
   stop();
+});
+
+// Soort
+
+test('reads the Soort of the Taak, or none', () => {
+  assert.equal(detailOf([issue({ number: 1, labels: ['soort: Klusjes'] })], 1)?.soort, 'klusjes');
+  assert.equal(detailOf([issue({ number: 1 })], 1)?.soort, null);
+});
+
+test('offers every known Soort, with the Taak\'s own even if its label is gone', () => {
+  const taak = issue({ number: 3, state: 'closed', labels: ['soort: tuin'] });
+  const c = editChoices({ issues: [taak], milestones: [], labels: ['soort: sociaal', 'soort: klusjes'] }, taak, 'tjaronee');
+  assert.deepEqual(c.soorten, ['klusjes', 'sociaal', 'tuin']);
+});
+
+/** The labels GitHub has on a seeded issue. @param {Record<string, any>} seeded */
+const serverLabels = (seeded) => seeded.labels.map((/** @type {{ name: string }} */ l) => l.name).sort();
+
+test('tapping another Soort chip moves the Taak there: one label removed, one added', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Lamp ophangen', labels: ['prio: high', 'soort: sociaal'] });
+  await store.refresh();
+
+  tapSoortChip(store, taak.number, 'klusjes');
+
+  assert.equal(detailOf(store.getState().issues, taak.number)?.soort, 'klusjes', 'shows at once');
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), ['prio: high', 'soort: klusjes']);
+});
+
+test('tapping the chosen Soort chip clears it: Geen soort', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Lamp ophangen', labels: ['prio: high', 'soort: klusjes'] });
+  await store.refresh();
+
+  tapSoortChip(store, taak.number, 'klusjes');
+
+  assert.equal(detailOf(store.getState().issues, taak.number)?.soort, null);
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), ['prio: high']);
+});
+
+test('a Taak with two hand-made soort: labels ends with exactly the chosen one', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Lamp ophangen', labels: ['soort: sociaal', 'soort: klusjes'] });
+  await store.refresh();
+
+  tapSoortChip(store, taak.number, 'tuin');
+
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), ['soort: tuin']);
+});
+
+test('a hand-written soort: label counts as its Soort: tapping it clears it', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Lamp ophangen', labels: ['soort: Klusjes'] });
+  await store.refresh();
+
+  tapSoortChip(store, taak.number, 'klusjes');
+
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), []);
 });
