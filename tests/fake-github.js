@@ -15,7 +15,8 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
   const blockedBy = new Map();
   /** @type {Map<number, number>} child number → parent number */
   const parents = new Map();
-  const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: 'open' }];
+  /** @type {{ number: number, title: string, state: string, description: string }[]} */
+  const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: 'open', description: '' }];
   const labels = [
     'prio: low', 'prio: medium', 'prio: high',
     'urgency: now', 'urgency: soon', 'urgency: whenever',
@@ -65,6 +66,13 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     issue.labels = issue.labels.map((/** @type {any} */ l) => (typeof l === 'string' ? { name: l } : l));
     issues.push(issue);
     return issue;
+  }
+
+  /** Seeds a milestone. @param {string} title @param {string} [description] */
+  function addMilestone(title, description = '') {
+    const milestone = { number: Math.max(0, ...milestones.map((ms) => ms.number)) + 1, title, state: 'open', description };
+    milestones.push(milestone);
+    return milestone;
   }
 
   /** A pull request, which the issues endpoint also returns. */
@@ -119,18 +127,25 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
 
   /** @param {Request} req @param {URL} url */
   function listIssues(req, url) {
+    const label = url.searchParams.get('labels');
     const all = issues
       .filter((i) => url.searchParams.get('state') === 'all' || i.state === (url.searchParams.get('state') ?? 'open'))
+      .filter((i) => !label || i.labels.some((/** @type {any} */ l) => l.name === label))
       .map(present);
     if (url.searchParams.get('sort') === 'created' && url.searchParams.get('direction') === 'desc') all.reverse();
+    return page(req, url, all);
+  }
+
+  /** One page of `all`, with a `Link: rel="next"` header while more remain. @param {Request} req @param {URL} url @param {unknown[]} all */
+  function page(req, url, all) {
     const perPage = Math.min(Number(url.searchParams.get('per_page') ?? 30), pageSize);
-    const page = Number(url.searchParams.get('page') ?? 1);
-    const items = all.slice((page - 1) * perPage, page * perPage);
+    const current = Number(url.searchParams.get('page') ?? 1);
+    const items = all.slice((current - 1) * perPage, current * perPage);
     /** @type {Record<string, string>} */
     const headers = {};
-    if (page * perPage < all.length) {
+    if (current * perPage < all.length) {
       const next = new URL(url);
-      next.searchParams.set('page', String(page + 1));
+      next.searchParams.set('page', String(current + 1));
       headers.link = `<${next}>; rel="next"`;
     }
     return conditional(req, items, headers);
@@ -146,6 +161,19 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
 
     if (m === 'GET' && path === `${REPO}/issues`) return listIssues(req, url);
     if (m === 'GET' && path === `${REPO}/milestones`) return conditional(req, milestones);
+    if (m === 'POST' && path === `${REPO}/milestones`) {
+      if (milestones.some((ms) => ms.title === body.title)) {
+        return reply(422, { message: 'Validation Failed', errors: [{ resource: 'Milestone', code: 'already_exists', field: 'title' }] });
+      }
+      return reply(201, addMilestone(body.title, body.description ?? ''));
+    }
+    if (m === 'PATCH' && (match = path.match(new RegExp(`^${REPO}/milestones/(\\d+)$`)))) {
+      const number = Number(match[1]);
+      const milestone = milestones.find((ms) => ms.number === number);
+      if (!milestone) return reply(404, { message: 'Not Found' });
+      if ('description' in body) milestone.description = body.description;
+      return reply(200, milestone);
+    }
     if (m === 'GET' && path === `${REPO}/labels`) return conditional(req, labels);
     if (m === 'POST' && path === `${REPO}/labels`) {
       if (state.refuseLabels) return reply(403, { message: 'Resource not accessible by personal access token' });
@@ -230,6 +258,9 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
         touch(issue);
         return reply(200, present(blocker));
       }
+      if (rest === '/sub_issues' && m === 'GET') {
+        return page(req, url, [...parents].filter(([, p]) => p === issue.number).map(([c]) => present(byNumber(c))));
+      }
       if (rest === '/sub_issues' && m === 'POST') {
         const child = byId(body.sub_issue_id);
         if (!child) return reply(422, { message: 'Validation Failed' });
@@ -274,7 +305,9 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     state,
     issues,
     comments,
+    milestones,
     addIssue,
+    addMilestone,
     addPullRequest,
     byNumber,
     /** @param {number} n */
