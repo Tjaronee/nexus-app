@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { takenList, loadFilters, saveFilters, isFiltered, ALL } from '../src/taken.js';
+import { takenList, loadFilters, saveFilters, isFiltered, withKnownSoorten, ALL } from '../src/taken.js';
+import { groupBySoort } from '../src/soort.js';
 import { memoryStorage } from './memory-storage.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
@@ -202,9 +203,9 @@ test('filters are remembered on the device', () => {
   const storage = memoryStorage();
   assert.deepEqual(loadFilters(storage), ALL);
 
-  saveFilters(storage, { prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn' });
+  saveFilters(storage, { prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn', soort: ['klusjes', null] });
 
-  assert.deepEqual(loadFilters(storage), { prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn' });
+  assert.deepEqual(loadFilters(storage), { prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn', soort: ['klusjes', null] });
 });
 
 test('unreadable or outdated remembered filters fall back to showing everything', () => {
@@ -214,6 +215,17 @@ test('unreadable or outdated remembered filters fall back to showing everything'
 
   storage.setItem('nexus.takenFilters', JSON.stringify({ prio: ['heel hoog', 'laag'], urgentie: 'nu', wie: 'ik' }));
   assert.deepEqual(loadFilters(storage), { ...ALL, prio: ['laag'] });
+
+  storage.setItem('nexus.takenFilters', JSON.stringify({ soort: ['Huishouden', 3, null] }));
+  assert.deepEqual(loadFilters(storage).soort, ['huishouden', null]);
+});
+
+test('a remembered Soort that no longer exists is dropped silently', () => {
+  const storage = memoryStorage();
+  saveFilters(storage, { ...ALL, soort: ['huishouden', 'weg', null] });
+  assert.deepEqual(withKnownSoorten(loadFilters(storage), ['huishouden', 'sociaal']).soort, ['huishouden', null]);
+  // With no Soorten at all there is no Soort row, so nothing can be filtered on.
+  assert.deepEqual(withKnownSoorten(loadFilters(storage), []).soort, []);
 });
 
 test('knows whether any filter is on', () => {
@@ -221,4 +233,51 @@ test('knows whether any filter is on', () => {
   assert.equal(isFiltered({ ...ALL, prio: ['hoog'] }), true);
   assert.equal(isFiltered({ ...ALL, urgentie: ['nu'] }), true);
   assert.equal(isFiltered({ ...ALL, wie: 'mijn' }), true);
+  assert.equal(isFiltered({ ...ALL, soort: [null] }), true);
+});
+
+/** @param {Issue[]} issues @param {Partial<Parameters<typeof takenList>[1]>} [options] */
+function grouped(issues, options = {}) {
+  const { free } = takenList(issues, { filters: ALL, search: '', me: 'tjaronee', ...options });
+  return groupBySoort(free).map((g) => [g.soort, g.rows.map((r) => r.issue.title)]);
+}
+
+test('the free Taken are grouped per Soort, alphabetically, Geen soort last, sorted within', () => {
+  const list = [
+    issue({ title: 'zonder', labels: ['urgency: now'] }),
+    issue({ title: 'feest ooit', labels: ['soort: sociaal', 'urgency: whenever'] }),
+    issue({ title: 'stofzuigen', labels: ['soort: huishouden'] }),
+    issue({ title: 'feest nu', labels: ['soort: sociaal', 'urgency: now', 'prio: low'] }),
+    issue({ title: 'bellen nu hoog', labels: ['soort: Sociaal', 'urgency: now', 'prio: high'] }),
+  ];
+  assert.deepEqual(grouped(list), [
+    ['huishouden', ['stofzuigen']],
+    ['sociaal', ['bellen nu hoog', 'feest nu', 'feest ooit']],
+    [null, ['zonder']],
+  ]);
+});
+
+test('a Taak with two Soorten is shown once, in the alphabetically first', () => {
+  const list = [issue({ title: 'beide', labels: ['soort: sociaal', 'soort: klusjes'] })];
+  assert.deepEqual(grouped(list), [['klusjes', ['beide']]]);
+});
+
+test('the Soort filter is a multi-select that also filters Geblokkeerd', () => {
+  const blocker = issue({ title: 'blocker', labels: ['soort: werk'] });
+  const list = [
+    blocker,
+    issue({ title: 'stofzuigen', labels: ['soort: huishouden'] }),
+    issue({ title: 'kast', labels: ['soort: klusjes'] }),
+    issue({ title: 'feest', labels: ['soort: sociaal'] }),
+    issue({ title: 'zonder' }),
+    issue({ title: 'plank', labels: ['soort: klusjes'], blockedBy: [blocker.ref] }),
+    issue({ title: 'etentje', labels: ['soort: sociaal'], blockedBy: [blocker.ref] }),
+  ];
+  const filters = { ...ALL, soort: ['huishouden', 'klusjes'] };
+  assert.deepEqual(grouped(list, { filters }), [
+    ['huishouden', ['stofzuigen']],
+    ['klusjes', ['kast']],
+  ]);
+  assert.deepEqual(titles(list, { filters }).blocked, ['plank']);
+  assert.deepEqual(titles(list, { filters: { ...ALL, soort: [null] } }), { free: ['zonder'], blocked: [] });
 });

@@ -106,7 +106,7 @@ function connect() {
 
 function renderLists() {
   const state = store?.getState();
-  taken.update(state?.issues ?? [], getMe());
+  taken.update(state?.issues ?? [], getMe(), state?.labels ?? []);
   mijlpalen.update(state?.issues ?? [], state?.milestones ?? []);
   boodschappen.render();
   boodschapAdd.render();

@@ -1,5 +1,5 @@
 import { kindOf, matchesRef } from './data/model.js';
-import { normalise } from './text.js';
+import { labelName, normalise } from './text.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -9,7 +9,6 @@ import { normalise } from './text.js';
 /** Zoomed in on one Plek, or null for all of them. @typedef {{ plek: PlekKey } | null} Zoom */
 
 export const PLEK_PREFIX = 'waar: ';
-const PLEK_MAX = 50 - PLEK_PREFIX.length;
 
 /**
  * The Boodschappen tab: the open Boodschappen grouped by Plek, and a chip per
@@ -109,13 +108,9 @@ export function knownPlekken(labels, issues) {
   return [...new Set([...fromLabels, ...fromIssues].map(normalisePlek))].sort((a, b) => a.localeCompare(b, 'nl'));
 }
 
-/**
- * How a Plek is written in its label (Nexus ADR 0003). GitHub allows 50
- * characters in a label, and `waar: ` takes 6 of them.
- * @param {string} name
- */
+/** How a Plek is written in its label (Nexus ADR 0003). @param {string} name */
 export function normalisePlek(name) {
-  return name.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, PLEK_MAX).trim();
+  return labelName(name, PLEK_PREFIX);
 }
 
 /** How Boodschap names are compared: no case, accents or extra spaces. @param {string} name */

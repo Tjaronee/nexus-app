@@ -338,6 +338,10 @@ button {
   text-decoration: underline;
 }
 
+/* The first Soort group sits close under the chips, like the list did. */
+.soort:first-child { margin-top: 0.75rem; }
+.soort h2::first-letter { text-transform: uppercase; }
+
 .blocked { margin-top: 1.75rem; opacity: 0.6; }
 .blocked h2 { margin: 0; font-size: 0.9375rem; color: var(--muted); }
 
