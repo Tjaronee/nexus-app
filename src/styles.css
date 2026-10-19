@@ -374,13 +374,13 @@ button {
 .bar { display: block; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .bar__fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 
-/* Soorten */
+/* Soorten and Plekken */
 
-.soorten { list-style: none; margin: 0; padding: 0; }
-.soort-row { display: flex; align-items: center; gap: 0.75rem; min-height: 48px; border-bottom: 1px solid var(--border); }
-.soort-row__name { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
-.soort-row__count { flex: none; }
-.soort-row__remove { flex: none; color: var(--danger); }
+.soorten, .plekken { list-style: none; margin: 0; padding: 0; }
+.soort-row, .plek-row { display: flex; align-items: center; gap: 0.75rem; min-height: 48px; border-bottom: 1px solid var(--border); }
+.soort-row__name, .plek-row__name { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+.soort-row__count, .plek-row__count { flex: none; }
+.soort-row__remove, .plek-row__remove { flex: none; color: var(--danger); }
 
 .group { margin-top: 1.5rem; }
 .group h2, .group h3, .group summary { margin: 0 0 0.5rem; font-size: 0.9375rem; color: var(--muted); }
