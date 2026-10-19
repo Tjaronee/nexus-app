@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mijlpalenOverview, mijlpaalView, epicView } from '../src/mijlpalen.js';
-import { toIssue, withCid } from '../src/data/model.js';
+import { mijlpalenOverview, mijlpaalView } from '../src/mijlpalen.js';
+import { toIssue } from '../src/data/model.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
 /** @typedef {import('../src/data/store.js').Milestone} Milestone */
@@ -23,8 +23,6 @@ function issue(over = {}) {
     labels: [],
     assignees: [],
     milestone: null,
-    parent: null,
-    subIssues: { total: 0, completed: 0 },
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,
@@ -45,7 +43,7 @@ test('lists the open Mijlpalen with how many of their issues are closed', () => 
   const issues = [
     issue({ milestone: IN_HUIS }),
     issue({ milestone: IN_HUIS, state: 'closed' }),
-    issue({ milestone: IN_HUIS, state: 'closed', labels: ['Epic'] }),
+    issue({ milestone: IN_HUIS, state: 'closed', labels: ['prio: high'] }),
     issue({ title: 'los' }),
   ];
   const { open } = mijlpalenOverview(issues, [HUIS]);
@@ -73,65 +71,44 @@ test('closed Mijlpalen are kept apart; open ones go by due date, undated last', 
   );
 });
 
-test('open Epics without a Mijlpaal form their own group, with progress over their sub-issues', () => {
-  const verhuizen = issue({ title: 'Verhuizen', labels: ['Epic'] });
-  const issues = [
-    verhuizen,
-    issue({ parent: verhuizen.number, state: 'closed' }),
-    issue({ parent: verhuizen.number }),
-    issue({ parent: verhuizen.number, milestone: IN_HUIS }),
-    issue({ title: 'Oud', labels: ['Epic'], state: 'closed' }),
-    issue({ title: 'In huis', labels: ['Epic'], milestone: IN_HUIS }),
-    issue({ title: 'Losse Taak' }),
-  ];
-  const { zonder } = mijlpalenOverview(issues, [HUIS]);
-  assert.deepEqual(
-    zonder.map((e) => [e.issue.title, e.progress]),
-    [['Verhuizen', { closed: 1, total: 3 }]],
-  );
+test('the overview has only the Mijlpalen, not the issues outside one', () => {
+  const overview = mijlpalenOverview([issue({ title: 'Losse Taak' })], [HUIS]);
+  assert.deepEqual(Object.keys(overview), ['open', 'closed']);
 });
 
-test('an Epic under another Epic shows inside it, not at the top of its group', () => {
-  const groot = issue({ title: 'Groot', labels: ['Epic'] });
-  const klein = issue({ title: 'Klein', parent: groot.number, subIssues: { total: 1, completed: 0 } });
-  const taak = issue({ parent: klein.number });
-  const { zonder } = mijlpalenOverview([groot, klein, taak], []);
-  assert.deepEqual(
-    zonder.map((e) => [e.issue.title, e.progress]),
-    [['Groot', { closed: 0, total: 1 }]],
-  );
-});
-
-test('a Mijlpaal shows its Epics with their progress, open ones first, and its open Taken outside an Epic', () => {
-  const taxaties = issue({ title: 'Taxaties', labels: ['Epic'], milestone: IN_HUIS, state: 'closed' });
-  const verhuizen = issue({ title: 'Verhuizen', labels: ['Epic'], milestone: IN_HUIS });
+test('a Mijlpaal shows its open Taken as one list, without breadcrumbs', () => {
   const issues = [
-    taxaties,
-    verhuizen,
-    issue({ parent: verhuizen.number, milestone: IN_HUIS, state: 'closed' }),
-    issue({ title: 'Dozen', parent: verhuizen.number, milestone: IN_HUIS }),
     issue({ title: 'Meubels opmeten', milestone: IN_HUIS }),
     issue({ title: 'Oude Taak', milestone: IN_HUIS, state: 'closed' }),
+    issue({ title: 'Melk', milestone: IN_HUIS, labels: ['boodschappen'] }),
     issue({ title: 'Andere mijlpaal', milestone: { number: 2, title: 'Anders' } }),
   ];
   const view = mijlpaalView(issues, [HUIS], 1);
   assert.ok(view);
   assert.equal(view.title, 'Nieuw huis 2026');
-  assert.deepEqual(view.progress, { closed: 3, total: 6 });
+  assert.deepEqual(view.progress, { closed: 1, total: 3 });
   assert.deepEqual(
-    view.epics.map((e) => [e.issue.title, e.progress]),
-    [
-      ['Verhuizen', { closed: 1, total: 2 }],
-      ['Taxaties', { closed: 0, total: 0 }],
-    ],
-  );
-  assert.deepEqual(
-    view.taken.map((r) => r.issue.title),
-    ['Meubels opmeten'],
+    view.taken.map((r) => [r.issue.title, r.breadcrumb]),
+    [['Meubels opmeten', []]],
   );
 });
 
-test('the loose Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd ones last', () => {
+test('a former Epic and its sub-issues are ordinary Taken in the Mijlpaal', () => {
+  // As GitHub sends them: the sub-issue links are still there, and ignored.
+  const raw = (/** @type {object} */ over) =>
+    toIssue({ state: 'open', labels: [], milestone: IN_HUIS, created_at: '2026-09-01T10:00:00Z', ...over });
+  const issues = [
+    raw({ number: 7, title: 'Verhuizen', labels: [{ name: 'Epic' }], sub_issues_summary: { total: 1, completed: 0 } }),
+    raw({ number: 8, title: 'Dozen', parent_issue_url: 'https://api.github.com/repos/Tjaronee/Nexus/issues/7' }),
+  ];
+  const view = mijlpaalView(issues, [HUIS], 1);
+  assert.deepEqual(
+    view?.taken.map((r) => r.issue.title).sort(),
+    ['Dozen', 'Verhuizen'],
+  );
+});
+
+test('the Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd ones last', () => {
   const blocker = issue({ title: 'ooit', labels: ['urgency: whenever'], milestone: IN_HUIS });
   const issues = [
     blocker,
@@ -151,49 +128,4 @@ test('the loose Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd 
 
 test('an unknown Mijlpaal has no screen', () => {
   assert.equal(mijlpaalView([], [HUIS], 99), null);
-});
-
-test('an Epic shows its open Taken, sorted like the Taken list, and its sub-Epics with their progress', () => {
-  const epic = issue({ title: 'Verkoop eigen woning', labels: ['Epic'], milestone: IN_HUIS });
-  const documenten = issue({ title: 'Documenten', parent: epic.number, subIssues: { total: 2, completed: 2 } });
-  const issues = [
-    epic,
-    documenten,
-    issue({ parent: documenten.number, state: 'closed' }),
-    issue({ parent: documenten.number, state: 'closed' }),
-    issue({ title: 'ooit', parent: epic.number, labels: ['urgency: whenever'] }),
-    issue({ title: 'nu', parent: epic.number, labels: ['urgency: now'] }),
-    issue({ title: 'klaar', parent: epic.number, state: 'closed' }),
-    issue({ title: 'elders' }),
-  ];
-  const view = epicView(issues, epic.ref);
-  assert.ok(view);
-  assert.equal(view.title, 'Verkoop eigen woning');
-  assert.deepEqual(view.progress, { closed: 1, total: 4 });
-  assert.deepEqual(
-    view.epics.map((e) => [e.issue.title, e.progress]),
-    [['Documenten', { closed: 2, total: 2 }]],
-  );
-  assert.deepEqual(
-    view.taken.map((r) => [r.issue.title, r.breadcrumb]),
-    [
-      ['nu', []],
-      ['ooit', []],
-    ],
-  );
-});
-
-test("an Epic's screen has its description, without the hidden client ID", () => {
-  const epic = toIssue({
-    number: 7,
-    title: 'Verhuizen',
-    state: 'open',
-    labels: [{ name: 'Epic' }],
-    body: withCid('Zie [de makelaar](https://example.nl)', 'abc-1'),
-  });
-  assert.equal(epicView([epic], 7)?.description, 'Zie [de makelaar](https://example.nl)');
-});
-
-test('an Epic that is gone has no screen', () => {
-  assert.equal(epicView([], 99), null);
 });

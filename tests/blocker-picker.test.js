@@ -9,7 +9,7 @@ function issue(over) {
   const number = over.number ?? 1;
   return {
     ref: number, number, id: number, cid: null, title: `Taak ${number}`, body: '', state: 'open', stateReason: null,
-    labels: [], assignees: [], milestone: null, parent: null, subIssues: { total: 0, completed: 0 },
+    labels: [], assignees: [], milestone: null,
     blockedByCount: 0, blockedBy: [], comments: 0, createdAt: '', updatedAt: '', closedAt: null,
     ...over,
   };
@@ -21,7 +21,6 @@ const ISSUES = [
   issue({ number: 3, title: 'Dozen kopen' }),
   issue({ number: 4, title: 'Dozijn eieren', labels: ['boodschappen'] }),
   issue({ number: 5, title: 'Dozen klaar', state: 'closed' }),
-  issue({ number: 6, title: 'Dozen Epic', labels: ['Epic'] }),
   issue({ number: 7, title: 'Dozen inpakken', blockedBy: [1] }),
   issue({ number: 8, title: 'Café opzeggen' }),
   issue({ number: 23, title: 'Afval wegbrengen' }),

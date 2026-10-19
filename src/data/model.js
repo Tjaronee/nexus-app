@@ -20,8 +20,6 @@
  *   labels: string[],
  *   assignees: Person[],
  *   milestone: MilestoneRef | null,
- *   parent: number | null,
- *   subIssues: { total: number, completed: number },
  *   blockedByCount: number,
  *   blockedBy: IssueRef[],
  *   comments: number,
@@ -32,12 +30,11 @@
  */
 /** @typedef {number | string} IssueRef Issue number, or client ID for an issue not created yet. */
 /** @typedef {'completed' | 'not_planned' | 'reopened'} StateReason */
-/** @typedef {'taak' | 'epic' | 'boodschap'} Kind */
+/** @typedef {'taak' | 'boodschap'} Kind */
 /** @typedef {'laag' | 'middel' | 'hoog'} Prio */
 /** @typedef {'nu' | 'binnenkort' | 'ooit'} Urgentie */
 
 export const BOODSCHAPPEN_LABEL = 'boodschappen';
-export const EPIC_LABEL = 'Epic';
 
 /** @type {Record<Prio, string>} */
 export const PRIO_LABELS = { laag: 'prio: low', middel: 'prio: medium', hoog: 'prio: high' };
@@ -77,7 +74,6 @@ export function splitCid(body) {
  */
 export function toIssue(raw) {
   const { body, cid } = splitCid(raw.body);
-  const parentUrl = /** @type {string | null | undefined} */ (raw.parent_issue_url);
   return {
     ref: raw.number,
     number: raw.number,
@@ -90,11 +86,6 @@ export function toIssue(raw) {
     labels: (raw.labels ?? []).map((/** @type {any} */ l) => (typeof l === 'string' ? l : l.name)),
     assignees: (raw.assignees ?? []).map((/** @type {any} */ a) => ({ login: a.login, avatarUrl: a.avatar_url })),
     milestone: raw.milestone ? { number: raw.milestone.number, title: raw.milestone.title } : null,
-    parent: parentUrl ? Number(parentUrl.split('/').pop()) : null,
-    subIssues: {
-      total: raw.sub_issues_summary?.total ?? 0,
-      completed: raw.sub_issues_summary?.completed ?? 0,
-    },
     blockedByCount: raw.issue_dependencies_summary?.total_blocked_by ?? 0,
     blockedBy: [],
     comments: raw.comments ?? 0,
@@ -104,10 +95,13 @@ export function toIssue(raw) {
   };
 }
 
-/** @param {Issue} issue @returns {Kind} */
+/**
+ * Sub-issue links and old labels don't make a kind of their own: every issue
+ * that isn't a Boodschap is a Taak (Nexus ADR 0004).
+ * @param {Issue} issue @returns {Kind}
+ */
 export function kindOf(issue) {
   if (issue.labels.includes(BOODSCHAPPEN_LABEL)) return 'boodschap';
-  if (issue.labels.includes(EPIC_LABEL) || issue.subIssues.total > 0) return 'epic';
   return 'taak';
 }
 

@@ -1,4 +1,4 @@
-import { mijlpalenOverview, mijlpaalView, epicView } from './mijlpalen.js';
+import { mijlpalenOverview, mijlpaalView } from './mijlpalen.js';
 import { rowElement } from './taken-view.js';
 import { parseMarkdown } from './markdown.js';
 import { renderMarkdown } from './markdown-view.js';
@@ -8,13 +8,12 @@ import { $, el } from './dom.js';
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./data/store.js').Milestone} Milestone */
 /** @typedef {import('./mijlpalen.js').Progress} Progress */
-/** @typedef {import('./mijlpalen.js').EpicSummary} EpicSummary */
-/** @typedef {{ mijlpaal: number } | { epic: IssueRef }} Screen */
+/** @typedef {{ mijlpaal: number }} Screen */
 
 /**
  * The Mijlpalen tab in #panel-mijlpalen: the overview, and from there a
- * Mijlpaal's or an Epic's screen. Each screen is its own history entry, so
- * the phone's back button goes back up.
+ * Mijlpaal's screen. That screen is its own history entry, so the phone's
+ * back button goes back up.
  *
  * @param {{ onOpen: (ref: IssueRef) => void, onClose: (issue: Issue) => void }} deps
  *   `onOpen` is called when a Taak is tapped; `onClose` when its checkbox is ticked.
@@ -43,7 +42,8 @@ export function mountMijlpalen({ onOpen, onClose }) {
 
   /** @param {Screen | null} next */
   function show(next) {
-    screen = next;
+    // A history entry from an older version may name a screen that is gone.
+    screen = typeof next?.mijlpaal === 'number' ? next : null;
     render();
   }
 
@@ -51,18 +51,15 @@ export function mountMijlpalen({ onOpen, onClose }) {
     $('m-overview').hidden = screen !== null;
     $('m-screen').hidden = screen === null;
     if (screen === null) renderOverview();
-    else if ('mijlpaal' in screen) renderMijlpaal(screen.mijlpaal);
-    else renderEpic(screen.epic);
+    else renderMijlpaal(screen.mijlpaal);
   }
 
   function renderOverview() {
-    const { open: current, closed, zonder } = mijlpalenOverview(issues, milestones);
+    const { open: current, closed } = mijlpalenOverview(issues, milestones);
     const mijlpaalCard = (/** @type {import('./mijlpalen.js').MijlpaalSummary} */ m) =>
-      card(m.title, m.progress, false, () => open({ mijlpaal: m.number }));
+      card(m.title, m.progress, () => open({ mijlpaal: m.number }));
     $('m-open').replaceChildren(...current.map(mijlpaalCard));
     $('m-empty').hidden = current.length > 0;
-    $('m-zonder-list').replaceChildren(...zonder.map(epicCard));
-    $('m-zonder').hidden = zonder.length === 0;
     $('m-closed-list').replaceChildren(...closed.map(mijlpaalCard));
     $('m-closed-count').textContent = String(closed.length);
     $('m-closed').hidden = closed.length === 0;
@@ -71,23 +68,8 @@ export function mountMijlpalen({ onOpen, onClose }) {
   /** @param {number} number */
   function renderMijlpaal(number) {
     const view = mijlpaalView(issues, milestones, number);
-    renderScreen(view, 'Deze Mijlpaal bestaat niet meer.', 'Geen open Taken in deze Mijlpaal.');
-  }
-
-  /** @param {IssueRef} ref */
-  function renderEpic(ref) {
-    const view = epicView(issues, ref);
-    renderScreen(view, 'Deze Epic bestaat niet meer.', 'Geen open Taken in deze Epic.');
-  }
-
-  /**
-   * @param {{ title: string, description: string, progress: Progress, epics: EpicSummary[], taken: import('./taken.js').Row[] } | null} view
-   * @param {string} missing what to say when it is gone
-   * @param {string} empty what to say when there is nothing open in it
-   */
-  function renderScreen(view, missing, empty) {
     $('m-title').textContent = view?.title ?? '';
-    $('m-screen-missing').textContent = missing;
+    $('m-screen-missing').textContent = 'Deze Mijlpaal bestaat niet meer.';
     $('m-screen-missing').hidden = view !== null;
     $('m-screen-body').hidden = view === null;
     if (!view) return;
@@ -95,18 +77,10 @@ export function mountMijlpalen({ onOpen, onClose }) {
     // Read-only: its checkboxes can't be ticked here.
     $('m-description').replaceChildren(renderMarkdown(parseMarkdown(view.description), null));
     $('m-description').hidden = view.description.trim() === '';
-    $('m-epics').replaceChildren(...view.epics.map(epicCard));
-    $('m-epics-section').hidden = view.epics.length === 0;
     $('m-taken').replaceChildren(...view.taken.map((row) => rowElement(row, onOpen, onClose)));
     $('m-taken-section').hidden = view.taken.length === 0;
-    $('m-screen-empty').textContent = empty;
-    // With Epics listed, the open Taken are in those.
-    $('m-screen-empty').hidden = view.taken.length + view.epics.length > 0;
-  }
-
-  /** @param {EpicSummary} e */
-  function epicCard(e) {
-    return card(e.issue.title, e.progress, e.issue.state === 'closed', () => open({ epic: e.issue.ref }));
+    $('m-screen-empty').textContent = 'Geen open Taken in deze Mijlpaal.';
+    $('m-screen-empty').hidden = view.taken.length > 0;
   }
 
   render();
@@ -122,12 +96,12 @@ export function mountMijlpalen({ onOpen, onClose }) {
 }
 
 /**
- * A Mijlpaal or Epic to tap on, with its progress bar.
- * @param {string} title @param {Progress} progress @param {boolean} done @param {() => void} onTap
+ * A Mijlpaal to tap on, with its progress bar.
+ * @param {string} title @param {Progress} progress @param {() => void} onTap
  */
-function card(title, progress, done, onTap) {
+function card(title, progress, onTap) {
   const li = el('li');
-  const button = /** @type {HTMLButtonElement} */ (el('button', done ? 'card card--done' : 'card'));
+  const button = /** @type {HTMLButtonElement} */ (el('button', 'card'));
   button.type = 'button';
   const head = el('span', 'card__head');
   head.append(el('span', 'card__title', title), el('span', 'card__count muted', countText(progress)));

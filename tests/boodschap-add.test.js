@@ -25,8 +25,6 @@ function issue(over = {}) {
     labels: ['boodschappen'],
     assignees: [],
     milestone: null,
-    parent: null,
-    subIssues: { total: 0, completed: 0 },
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,

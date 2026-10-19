@@ -23,7 +23,6 @@ import { withCid, matchesRef, avatarOf } from './model.js';
  *   | { type: 'assignees', ref: IssueRef, add: Person[], remove: string[] }
  *   | { type: 'milestone', ref: IssueRef, milestone: MilestoneRef | null }
  *   | { type: 'blockedBy', ref: IssueRef, blocker: IssueRef, add: boolean }
- *   | { type: 'parent', ref: IssueRef, parent: IssueRef | null, previous: IssueRef | null }
  *   | { type: 'comment', ref: IssueRef, body: string, at: string, cid: string }
  * )} Op
  */
@@ -82,23 +81,10 @@ export function apply(issues, op) {
         return { ...i, blockedBy, blockedByCount: i.blockedByCount + blockedBy.length - i.blockedBy.length };
       });
     }
-    case 'parent': {
-      const parentNumber = op.parent === null ? null : (find(issues, op.parent)?.number ?? null);
-      let next = patch(issues, op.ref, (i) => ({ ...i, parent: parentNumber }));
-      if (op.previous !== null) next = patch(next, op.previous, (p) => withSubIssues(p, -1));
-      if (parentNumber !== null) next = patch(next, parentNumber, (p) => withSubIssues(p, +1));
-      return next;
-    }
     case 'comment':
       return patch(issues, op.ref, (i) => ({ ...i, comments: i.comments + 1 }));
   }
 }
-
-/** @param {Issue} parent @param {number} delta */
-const withSubIssues = (parent, delta) => ({
-  ...parent,
-  subIssues: { ...parent.subIssues, total: Math.max(0, parent.subIssues.total + delta) },
-});
 
 /** @param {Issue[]} issues @param {IssueRef} ref */
 const find = (issues, ref) => issues.find((i) => matchesRef(i, ref));
@@ -117,8 +103,6 @@ function placeholder(op) {
     labels: op.labels,
     assignees: op.assignees.map((login) => ({ login, avatarUrl: avatarOf(login) })),
     milestone: op.milestone === null ? null : { number: op.milestone, title: '' },
-    parent: null,
-    subIssues: { total: 0, completed: 0 },
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,
@@ -215,18 +199,6 @@ export async function send(op, ctx) {
       else await call(ctx, 'DELETE', `${path}/${blocker.id}`, undefined, [404]);
       return null;
     }
-    case 'parent': {
-      const child = target(ctx, op.ref);
-      if (op.parent !== null) {
-        const parent = target(ctx, op.parent);
-        const body = { sub_issue_id: child.id, replace_parent: true };
-        await call(ctx, 'POST', `/issues/${parent.number}/sub_issues`, body, op.attempted ? [422] : []);
-      } else if (op.previous !== null) {
-        const previous = target(ctx, op.previous);
-        await call(ctx, 'DELETE', `/issues/${previous.number}/sub_issue`, { sub_issue_id: child.id }, [404]);
-      }
-      return null;
-    }
     case 'comment': {
       const issue = target(ctx, op.ref);
       const path = `/issues/${issue.number}/comments`;
@@ -257,13 +229,6 @@ export function settle(op, resolve) {
       return op;
     case 'blockedBy':
       return { ...op, ref: num(op.ref), blocker: num(op.blocker) };
-    case 'parent':
-      return {
-        ...op,
-        ref: num(op.ref),
-        parent: op.parent === null ? null : num(op.parent),
-        previous: op.previous === null ? null : num(op.previous),
-      };
     default:
       return { ...op, ref: num(op.ref) };
   }

@@ -25,8 +25,6 @@ function issue(over = {}) {
     labels: ['boodschappen'],
     assignees: [],
     milestone: null,
-    parent: null,
-    subIssues: { total: 0, completed: 0 },
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,
@@ -199,7 +197,7 @@ test('two phones ticking off at the same time both end up with everything In het
 
 test('the edit sheet offers every known Plek, alphabetically', () => {
   const melk = boodschap('melk', ['zeeman']);
-  assert.deepEqual(plekChoices(['Epic', 'waar: praxis', 'boodschappen', 'waar: centrum'], melk), ['centrum', 'praxis', 'zeeman']);
+  assert.deepEqual(plekChoices(['prio: high', 'waar: praxis', 'boodschappen', 'waar: centrum'], melk), ['centrum', 'praxis', 'zeeman']);
 });
 
 test("what was ticked on this phone stays In het mandje, even if GitHub's clock says it was before", () => {

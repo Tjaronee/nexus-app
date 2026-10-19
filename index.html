@@ -114,10 +114,6 @@
       <div id="m-overview">
         <ul id="m-open" class="cards"></ul>
         <p id="m-empty" class="placeholder" hidden>Geen open Mijlpalen.</p>
-        <section id="m-zonder" class="group" aria-labelledby="m-zonder-title" hidden>
-          <h2 id="m-zonder-title">Zonder mijlpaal</h2>
-          <ul id="m-zonder-list" class="cards"></ul>
-        </section>
         <details id="m-closed" class="group" hidden>
           <summary>Afgesloten Mijlpalen (<span id="m-closed-count"></span>)</summary>
           <ul id="m-closed-list" class="cards"></ul>
@@ -134,10 +130,6 @@
         <div id="m-screen-body">
           <div id="m-description" hidden></div>
           <div id="m-progress" class="progress"></div>
-          <section id="m-epics-section" class="group" aria-labelledby="m-epics-title">
-            <h3 id="m-epics-title">Epics</h3>
-            <ul id="m-epics" class="cards"></ul>
-          </section>
           <section id="m-taken-section" class="group" aria-labelledby="m-taken-title">
             <h3 id="m-taken-title">Taken</h3>
             <ul id="m-taken" class="taken"></ul>
@@ -169,12 +161,12 @@
     </nav>
 
     <dialog id="quick-add" class="sheet" aria-labelledby="quick-add-title">
-      <h2 id="quick-add-title">Nieuwe <span data-qa-noun>Taak</span></h2>
+      <h2 id="quick-add-title">Nieuwe Taak</h2>
       <form id="quick-add-form" class="quick-add" novalidate>
         <input id="qa-title" class="field" type="text" autocomplete="off" enterkeyhint="done"
                placeholder="Wat moet er gebeuren?" aria-label="Titel" autofocus>
-        <p id="qa-error" class="error" role="alert" hidden>Geef de <span data-qa-noun>Taak</span> een titel.</p>
-        <div class="chips" role="group" aria-label="Prio, Urgentie en Epic">
+        <p id="qa-error" class="error" role="alert" hidden>Geef de Taak een titel.</p>
+        <div class="chips" role="group" aria-label="Prio en Urgentie">
           <button type="button" class="chip" data-qa-prio="laag" aria-label="Prio laag">laag</button>
           <button type="button" class="chip" data-qa-prio="middel" aria-label="Prio middel">middel</button>
           <button type="button" class="chip" data-qa-prio="hoog" aria-label="Prio hoog">hoog</button>
@@ -182,26 +174,22 @@
           <button type="button" class="chip" data-qa-urgentie="nu" aria-label="Urgentie nu">nu</button>
           <button type="button" class="chip" data-qa-urgentie="binnenkort" aria-label="Urgentie binnenkort">binnenkort</button>
           <button type="button" class="chip" data-qa-urgentie="ooit" aria-label="Urgentie ooit">ooit</button>
-          <span class="chips__gap" aria-hidden="true"></span>
-          <button id="qa-is-epic" type="button" class="chip" aria-pressed="false">Epic</button>
         </div>
         <details id="qa-more" class="more">
           <summary>meer</summary>
           <label for="qa-body">Beschrijving</label>
           <textarea id="qa-body" class="field" rows="3"></textarea>
-          <label for="qa-epic" data-qa-taak-only>Epic</label>
-          <select id="qa-epic" class="field" data-qa-taak-only></select>
           <label for="qa-mijlpaal">Mijlpaal</label>
           <select id="qa-mijlpaal" class="field"></select>
-          <fieldset data-qa-taak-only>
+          <fieldset>
             <legend>Toegewezen</legend>
             <div id="qa-people" class="people"></div>
           </fieldset>
-          <fieldset data-qa-taak-only>
+          <fieldset>
             <legend>Geblokkeerd door</legend>
             <div id="qa-blockers"></div>
           </fieldset>
-          <fieldset data-qa-taak-only>
+          <fieldset>
             <legend>Blokkeert</legend>
             <div id="qa-blocks"></div>
           </fieldset>
@@ -238,8 +226,6 @@
           <button type="button" class="chip" data-d-urgentie="ooit" aria-label="Urgentie ooit">ooit</button>
         </div>
         <div class="fields">
-          <label for="d-epic">Epic</label>
-          <select id="d-epic" class="field"></select>
           <label for="d-mijlpaal">Mijlpaal</label>
           <select id="d-mijlpaal" class="field"></select>
           <fieldset>

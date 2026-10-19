@@ -13,7 +13,7 @@ function issue(over) {
   const number = over.number ?? 1;
   return {
     ref: number, number, id: number, cid: null, title: `Taak ${number}`, body: '', state: 'open', stateReason: null,
-    labels: [], assignees: [], milestone: null, parent: null, subIssues: { total: 0, completed: 0 },
+    labels: [], assignees: [], milestone: null,
     blockedByCount: 0, blockedBy: [], comments: 0, createdAt: '', updatedAt: '', closedAt: null,
     ...over,
   };
@@ -56,28 +56,21 @@ test('turns the ticked people into who to add and who to remove, ignoring case',
   assert.deepEqual(assigneeChange([], []), { add: [], remove: [] });
 });
 
-test('the pickers show what the Taak has now, even a closed Epic or Mijlpaal', () => {
-  const issues = [
-    issue({ number: 1, title: 'Verhuizen', labels: ['Epic'] }),
-    issue({ number: 2, title: 'Oude klus', labels: ['Epic'], state: 'closed' }),
-    issue({ number: 3, parent: 2, milestone: { number: 9, title: 'Bruiloft' }, assignees: [{ login: 'Tjaronee', avatarUrl: '' }] }),
-  ];
+test('the pickers show what the Taak has now, even a closed Mijlpaal', () => {
+  const taak = issue({ number: 3, milestone: { number: 9, title: 'Bruiloft' }, assignees: [{ login: 'Tjaronee', avatarUrl: '' }] });
   const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: /** @type {const} */ ('open'), description: '', dueOn: null }];
 
-  const c = editChoices({ issues, milestones }, issues[2], 'tjaronee');
+  const c = editChoices({ issues: [taak], milestones }, taak, 'tjaronee');
 
-  assert.deepEqual(c.epics.map((e) => e.title), ['Verhuizen', 'Oude klus']);
-  assert.equal(c.epic, 1);
   assert.deepEqual(c.mijlpalen.map((m) => m.title), ['Nieuw huis 2026', 'Bruiloft']);
   assert.equal(c.mijlpaal, 1);
   assert.deepEqual(c.people, ['tjaronee']);
   assert.deepEqual(c.toegewezen, ['tjaronee']);
 });
 
-test('the pickers show nothing chosen for a Taak without Epic, Mijlpaal or people', () => {
+test('the pickers show nothing chosen for a Taak without Mijlpaal or people', () => {
   const taak = issue({ number: 3 });
   const c = editChoices({ issues: [taak], milestones: [] }, taak, 'tjaronee');
-  assert.equal(c.epic, -1);
   assert.equal(c.mijlpaal, -1);
   assert.deepEqual(c.toegewezen, []);
 });

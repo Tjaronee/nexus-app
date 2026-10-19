@@ -162,7 +162,6 @@ test('a blocker whose answer got lost is not reported as refused', async () => {
 
   server.state.dropNextResponse = true;
   store.addBlockedBy(2, 1);
-  store.setParent(1, 2);
   await store.flush();
   await store.flush();
 
@@ -344,9 +343,8 @@ test('a link can be removed by the client ID of a blocker that has since reached
   assert.equal(issue(store, 1)?.blockedBy.length, 1, 'the same blocker only once');
 });
 
-test('a Taak created offline can be blocked by and put under an Epic', async () => {
+test('a Taak created offline can be blocked by another', async () => {
   const server = createFakeGitHub();
-  server.addIssue({ title: 'Verhuizen', labels: ['Epic'] });
   const { store } = setup({ server });
   await store.refresh();
   server.state.offline = true;
@@ -354,34 +352,34 @@ test('a Taak created offline can be blocked by and put under an Epic', async () 
   const busje = store.create({ title: 'busje regelen' });
   const dozen = store.create({ title: 'alles in dozen' });
   store.addBlockedBy(dozen, busje);
-  store.setParent(dozen, 1);
-  assert.equal(issue(store, dozen)?.parent, 1);
   server.state.offline = false;
   await store.flush();
 
-  assert.deepEqual(server.blockersOf(3), [2]);
-  assert.equal(server.parentOf(3), 1);
+  assert.deepEqual(server.blockersOf(2), [1]);
   assert.equal(store.getState().pending, 0);
 });
 
-test('moving a Taak to another Epic and out of it', async () => {
+test('a sub-issue move an older version left in the queue is dropped, the rest still sent', async () => {
   const server = createFakeGitHub();
-  server.addIssue({ title: 'Verhuizen', labels: ['Epic'] });
-  server.addIssue({ title: 'Koopcontract', labels: ['Epic'] });
+  server.addIssue({ title: 'Verhuizen' });
   server.addIssue({ title: 'notaris' });
-  server.setParent(3, 1);
-  const { store } = setup({ server });
+  const storage = memoryStorage();
+  storage.setItem(
+    'nexus.queue',
+    JSON.stringify([
+      { type: 'parent', ref: 2, parent: 1, previous: null },
+      { type: 'update', ref: 2, title: 'notaris bellen' },
+    ]),
+  );
+  const { store } = setup({ server, storage });
+  assert.equal(store.getState().pending, 1);
+
   await store.refresh();
-  assert.equal(issue(store, 3)?.parent, 1);
-
-  store.setParent(3, 2);
   await store.flush();
-  assert.equal(server.parentOf(3), 2);
 
-  store.setParent(3, null);
-  assert.equal(issue(store, 3)?.parent, null);
-  await store.flush();
-  assert.equal(server.parentOf(3), null);
+  assert.equal(issue(store, 2)?.title, 'notaris bellen');
+  assert.equal(server.parentOf(2), null);
+  assert.deepEqual(store.getState().failed, []);
 });
 
 test('comments load on request, and new ones show before they are sent', async () => {
