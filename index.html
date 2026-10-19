@@ -126,6 +126,14 @@
             <ul id="m-closed-list" class="cards"></ul>
           </details>
         </section>
+        <section id="indeling-soorten" class="indeling__section" aria-labelledby="s-section-title">
+          <div class="section__head">
+            <h2 id="s-section-title">Soorten</h2>
+            <button id="s-add" type="button" class="link">+ Soort</button>
+          </div>
+          <ul id="s-list" class="soorten"></ul>
+          <p id="s-empty" class="muted" hidden>Nog geen Soorten.</p>
+        </section>
       </div>
       <div id="m-screen" hidden>
         <div class="crumbbar">
@@ -166,6 +174,18 @@
           <div class="actions">
             <button id="mf-save" type="submit" class="primary">Opslaan</button>
             <button id="mf-cancel" type="button" class="secondary">Annuleren</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog id="soort-form" class="sheet" aria-labelledby="sf-heading">
+        <h2 id="sf-heading">Nieuwe Soort</h2>
+        <form id="sf-form" class="quick-add" novalidate>
+          <input id="sf-name" class="field" type="text" autocomplete="off" enterkeyhint="done"
+                 placeholder="Bijvoorbeeld klusjes" aria-label="Naam">
+          <p id="sf-error" class="error" role="alert" hidden></p>
+          <div class="actions">
+            <button id="sf-save" type="submit" class="primary">Opslaan</button>
+            <button id="sf-cancel" type="button" class="secondary">Annuleren</button>
           </div>
         </form>
       </dialog>

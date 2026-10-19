@@ -719,3 +719,115 @@ test('a refresh picks up changes made on the other phone', async () => {
 
   assert.deepEqual(store.getState().issues.map((i) => i.title), ['a2', 'b']);
 });
+
+/** @param {ReturnType<typeof createFakeGitHub>} server */
+const serverLabels = (server) => server.labels.map((l) => l.name);
+
+test('creating a label: straight to GitHub, and on the list at once', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.createLabel('soort: huishouden'), 'saved');
+
+  assert.ok(serverLabels(server).includes('soort: huishouden'));
+  assert.ok(store.getState().labels.includes('soort: huishouden'));
+  assert.equal(store.getState().pending, 0);
+  await store.refresh();
+  assert.ok(store.getState().labels.includes('soort: huishouden'));
+});
+
+test('a label GitHub already has is refused and reported', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('soort: Klusjes');
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.createLabel('soort: klusjes'), 'refused');
+
+  assert.equal(store.getState().failed.length, 1);
+  assert.deepEqual(serverLabels(server).filter((l) => l.startsWith('soort:')), ['soort: Klusjes']);
+});
+
+test('deleting a label takes it off every issue, closed ones too', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('soort: huishouden');
+  server.addIssue({ labels: ['soort: huishouden', 'prio: high'] });
+  server.addIssue({ labels: ['soort: huishouden'], state: 'closed', state_reason: 'completed' });
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.deleteLabel('soort: huishouden'), 'saved');
+
+  assert.ok(!serverLabels(server).includes('soort: huishouden'));
+  assert.deepEqual(server.byNumber(1).labels.map((/** @type {any} */ l) => l.name), ['prio: high']);
+  assert.deepEqual(server.byNumber(2).labels, []);
+  // On screen at once, not only after the next refresh.
+  assert.ok(!store.getState().labels.includes('soort: huishouden'));
+  assert.deepEqual(issue(store, 1)?.labels, ['prio: high']);
+  assert.deepEqual(issue(store, 2)?.labels, []);
+  await store.refresh();
+  assert.deepEqual(issue(store, 1)?.labels, ['prio: high']);
+  assert.ok(!store.getState().labels.includes('soort: huishouden'));
+});
+
+test('a label name with a colon and spaces is sent URL-encoded', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('soort: sociaal leven');
+  const { store } = setup({ server });
+  await store.refresh();
+
+  await store.deleteLabel('soort: sociaal leven');
+
+  assert.deepEqual(server.writes().map((w) => [w.method, w.path]), [['DELETE', '/repos/Tjaronee/Nexus/labels/soort%3A%20sociaal%20leven']]);
+});
+
+test('deleting a label GitHub does not have is refused and reported', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+  const before = store.getState().labels;
+
+  assert.equal(await store.deleteLabel('soort: weg'), 'refused');
+
+  assert.equal(store.getState().failed.length, 1);
+  assert.deepEqual(store.getState().labels, before);
+});
+
+test('managing labels is online only: nothing is queued without a connection', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('soort: klusjes');
+  const { store } = setup({ server });
+  await store.refresh();
+  server.state.offline = true;
+
+  assert.equal(await store.createLabel('soort: tuin'), 'offline');
+  assert.equal(await store.deleteLabel('soort: klusjes'), 'offline');
+
+  const state = store.getState();
+  assert.equal(state.online, false);
+  assert.equal(state.pending, 0);
+  assert.equal(state.failed.length, 0);
+  server.state.offline = false;
+  await store.flush();
+  await store.refresh();
+  assert.deepEqual(server.writes(), []);
+  assert.ok(store.getState().labels.includes('soort: klusjes'));
+});
+
+test('a refresh that overlaps a label change does not undo it on screen', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('soort: klusjes');
+  server.addIssue({ labels: ['soort: klusjes'] });
+  const { store } = setup({ server });
+  await store.refresh();
+
+  const refreshing = store.refresh();
+  await store.createLabel('soort: tuin');
+  await store.deleteLabel('soort: klusjes');
+  await refreshing;
+
+  assert.ok(store.getState().labels.includes('soort: tuin'));
+  assert.ok(!store.getState().labels.includes('soort: klusjes'));
+  assert.deepEqual(issue(store, 1)?.labels, []);
+});

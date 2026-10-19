@@ -206,6 +206,19 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
       labels.push({ name: body.name });
       return reply(201, { name: body.name });
     }
+    if (m === 'DELETE' && (match = path.match(new RegExp(`^${REPO}/labels/(.+)$`)))) {
+      // GitHub takes a deleted label off every issue that has it, closed ones too.
+      const name = decodeURIComponent(match[1]);
+      const label = labels.find((l) => l.name.toLowerCase() === name.toLowerCase());
+      if (!label) return reply(404, { message: 'Not Found' });
+      labels.splice(labels.indexOf(label), 1);
+      for (const issue of issues) {
+        if (!issue.labels.some((/** @type {any} */ l) => l.name === label.name)) continue;
+        issue.labels = issue.labels.filter((/** @type {any} */ l) => l.name !== label.name);
+        touch(issue);
+      }
+      return reply(204);
+    }
 
     if (m === 'POST' && path === `${REPO}/issues`) {
       const issue = addIssue({
@@ -329,6 +342,9 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     issues,
     comments,
     milestones,
+    labels,
+    /** Seeds a label directly on the server. @param {string} name */
+    addLabel: (name) => void labels.push({ name }),
     addIssue,
     addMilestone,
     addPullRequest,
