@@ -262,7 +262,7 @@ test('the Plekken section lists every Plek alphabetically, with its open Boodsch
 test('a Plek written by hand in two ways is one row, with both labels to delete', () => {
   const issues = [
     boodschap('schroeven', ['Praxis']),
-    boodschap('verf', ['praxis', ' praxis ']),
+    boodschap('verf', ['praxis', ' praxis ', ' ']),
     boodschap('lijm', ['ALBERT  heijn'], { state: 'closed', stateReason: 'completed' }),
   ];
   assert.deepEqual(plekkenOverview(['waar: praxis'], issues), [

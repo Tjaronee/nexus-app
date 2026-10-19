@@ -134,7 +134,7 @@ export function plekkenOverview(labels, issues) {
   }
   const open = issues
     .filter((i) => i.state === 'open' && kindOf(i) === 'boodschap')
-    .map((i) => new Set(plekkenOf(i).map(normalisePlek)));
+    .map((i) => new Set(plekkenOf(i).map(normalisePlek).filter(Boolean)));
   return [...byPlek]
     .map(([plek, labels]) => {
       const having = open.filter((plekken) => plekken.has(plek));
