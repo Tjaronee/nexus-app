@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SOORT_PREFIX, normaliseSoort, soortOf, knownSoorten, groupBySoort } from '../src/soort.js';
+import { SOORT_PREFIX, normaliseSoort, soortOf, knownSoorten, groupBySoort, tapSoort, soortChange } from '../src/soort.js';
 
 /** Only what Soorten are read from. @param {string[]} labels */
 const withLabels = (labels) =>
@@ -48,4 +48,28 @@ test('groups keep the row order, alphabetically by Soort, Geen soort last, no em
     ],
   );
   assert.deepEqual(groupBySoort([]), []);
+});
+
+test('tapping a Soort chip chooses it; tapping the chosen one clears it', () => {
+  assert.equal(tapSoort(null, 'klusjes'), 'klusjes');
+  assert.equal(tapSoort('sociaal', 'klusjes'), 'klusjes');
+  assert.equal(tapSoort('klusjes', 'klusjes'), null);
+});
+
+test('moving to another Soort removes the old soort: label and adds the new one', () => {
+  assert.deepEqual(soortChange(['prio: high', 'soort: sociaal'], 'klusjes'), { add: ['soort: klusjes'], remove: ['soort: sociaal'] });
+});
+
+test('clearing the Soort removes every soort: label and adds none', () => {
+  assert.deepEqual(soortChange(['soort: sociaal', 'waar: AH'], null), { add: [], remove: ['soort: sociaal'] });
+  assert.deepEqual(soortChange(['prio: high'], null), { add: [], remove: [] });
+});
+
+test('of two hand-made soort: labels only the chosen one stays, as it was written', () => {
+  assert.deepEqual(soortChange(['soort: Sociaal', 'soort: klusjes'], 'sociaal'), { add: [], remove: ['soort: klusjes'] });
+  assert.deepEqual(soortChange(['soort: sociaal', 'soort: Sociaal '], 'sociaal'), { add: [], remove: ['soort: Sociaal '] });
+  assert.deepEqual(soortChange(['soort: sociaal', 'soort: klusjes'], 'tuin'), {
+    add: ['soort: tuin'],
+    remove: ['soort: sociaal', 'soort: klusjes'],
+  });
 });

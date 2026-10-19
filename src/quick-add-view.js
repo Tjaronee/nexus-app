@@ -1,13 +1,15 @@
-import { saveDraft, choices, DEFAULTS } from './quick-add.js';
+import { saveDraft, choices, soortFromFilter, DEFAULTS } from './quick-add.js';
 import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
-import { $, fillSelect, peopleCheckboxes } from './dom.js';
+import { $, fillSelect, fillSoortChips, peopleCheckboxes } from './dom.js';
+import { tapSoort } from './soort.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
 /** @typedef {import('./quick-add.js').Store} Store */
 /** @typedef {ReturnType<typeof choices>} Choices */
 /** @typedef {import('./blocker-picker.js').BlockerOption} BlockerOption */
 /** @typedef {import('./blocker-picker-view.js').Direction} Direction */
+/** @typedef {import('./taken.js').Filters} Filters */
 
 /**
  * The + button on the Taken tab and the bottom sheet it opens.
@@ -20,14 +22,17 @@ export function mountQuickAdd({ getStore, getMe }) {
   const body = /** @type {HTMLTextAreaElement} */ ($('qa-body'));
   const mijlpaal = /** @type {HTMLSelectElement} */ ($('qa-mijlpaal'));
   const people = $('qa-people');
+  const soortChips = $('qa-soorten');
   const more = /** @type {HTMLDetailsElement} */ ($('qa-more'));
   const error = $('qa-error');
   const again = $('qa-again');
   const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-qa-prio], [data-qa-urgentie]'));
 
-  let { prio, urgentie } = DEFAULTS;
+  let { prio, urgentie, soort } = DEFAULTS;
+  /** The Soort a new Taak starts with, from the Taken filter. @type {string | null} */
+  let filterSoort = null;
   /** @type {Choices} */
-  let offered = { mijlpalen: [], people: [] };
+  let offered = { mijlpalen: [], people: [], soorten: [] };
   const blockedBy = linkPicker('qa-blockers', 'geblokkeerd door');
   const blocks = linkPicker('qa-blocks', 'blokkeert');
 
@@ -35,6 +40,7 @@ export function mountQuickAdd({ getStore, getMe }) {
     const store = getStore();
     if (!store) return;
     ({ prio, urgentie } = DEFAULTS);
+    soort = filterSoort;
     more.open = false;
     clear();
     dialog.showModal();
@@ -81,6 +87,7 @@ export function mountQuickAdd({ getStore, getMe }) {
       body: body.value,
       prio,
       urgentie,
+      soort,
       mijlpaal: mijlpaal.value === '' ? null : offered.mijlpalen[Number(mijlpaal.value)].number,
       toegewezen: [...people.querySelectorAll('input:checked')].map((box) => /** @type {HTMLInputElement} */ (box).value),
       blockedBy: blockedBy.refs(),
@@ -111,6 +118,10 @@ export function mountQuickAdd({ getStore, getMe }) {
       const { qaPrio, qaUrgentie } = chip.dataset;
       chip.setAttribute('aria-pressed', String(qaPrio ? qaPrio === prio : qaUrgentie === urgentie));
     }
+    fillSoortChips(soortChips, offered.soorten, soort, (tapped) => {
+      soort = tapSoort(soort, tapped);
+      render();
+    });
   }
 
   /**
@@ -147,4 +158,15 @@ export function mountQuickAdd({ getStore, getMe }) {
       },
     };
   }
+
+  return {
+    /**
+     * The Taken filter changed: with exactly one Soort on, the next new Taak
+     * starts in it, as a zoomed-in Plek does for a new Boodschap.
+     * @param {Filters} filters the filters that apply now
+     */
+    setFilter(filters) {
+      filterSoort = soortFromFilter(filters);
+    },
+  };
 }

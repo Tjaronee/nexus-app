@@ -38,3 +38,27 @@ export function fillSelect(select, items, none) {
   if (none !== null) options.unshift(new Option(none, ''));
   select.replaceChildren(...options);
 }
+
+/**
+ * Fills a row with one single-select chip per Soort, `chosen` pressed; there
+ * is no chip to type a new one. Without any Soort the row is hidden.
+ * @param {HTMLElement} row
+ * @param {string[]} soorten
+ * @param {string | null} chosen
+ * @param {(soort: string) => void} onTap
+ */
+export function fillSoortChips(row, soorten, chosen, onTap) {
+  row.hidden = soorten.length === 0;
+  // The chips are redrawn, so the tapped one would lose keyboard focus.
+  const focused = [...row.children].indexOf(/** @type {Element} */ (document.activeElement));
+  row.replaceChildren(
+    ...soorten.map((soort) => {
+      const chip = /** @type {HTMLButtonElement} */ (el('button', 'chip', soort));
+      chip.type = 'button';
+      chip.setAttribute('aria-pressed', String(soort === chosen));
+      chip.addEventListener('click', () => onTap(soort));
+      return chip;
+    }),
+  );
+  if (focused >= 0) /** @type {HTMLElement | undefined} */ (row.children[Math.min(focused, row.children.length - 1)])?.focus();
+}
