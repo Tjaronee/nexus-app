@@ -111,13 +111,21 @@
       </form>
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" aria-labelledby="tab-mijlpalen" hidden>
-      <div id="m-overview">
-        <ul id="m-open" class="cards"></ul>
-        <p id="m-empty" class="placeholder" hidden>Geen open Mijlpalen.</p>
-        <details id="m-closed" class="group" hidden>
-          <summary>Afgesloten Mijlpalen (<span id="m-closed-count"></span>)</summary>
-          <ul id="m-closed-list" class="cards"></ul>
-        </details>
+      <p id="m-offline" class="notice small" hidden>Zonder verbinding kun je de indeling bekijken, maar niet aanpassen.</p>
+      <!-- Indeling: one section per way of ordering Nexus. Soorten and Plekken follow Mijlpalen. -->
+      <div id="m-overview" class="indeling">
+        <section id="indeling-mijlpalen" class="indeling__section" aria-labelledby="m-section-title">
+          <div class="section__head">
+            <h2 id="m-section-title">Mijlpalen</h2>
+            <button id="m-add" type="button" class="link">+ Mijlpaal</button>
+          </div>
+          <ul id="m-open" class="cards"></ul>
+          <p id="m-empty" class="muted" hidden>Geen open Mijlpalen.</p>
+          <details id="m-closed" class="group" hidden>
+            <summary>Afgeronde Mijlpalen (<span id="m-closed-count"></span>)</summary>
+            <ul id="m-closed-list" class="cards"></ul>
+          </details>
+        </section>
       </div>
       <div id="m-screen" hidden>
         <div class="crumbbar">
@@ -125,15 +133,38 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
           </button>
           <h2 id="m-title"></h2>
+          <button id="m-edit" type="button" class="link m-edit">Bewerken</button>
         </div>
         <p id="m-screen-missing" class="placeholder" hidden>Deze Mijlpaal bestaat niet meer.</p>
         <div id="m-screen-body">
+          <p id="m-afgerond" class="muted small" hidden>Afgerond</p>
           <div id="m-description" hidden></div>
           <div id="m-progress" class="progress"></div>
-          <section id="m-taken-section" class="group" aria-labelledby="m-taken-title">
-            <h3 id="m-taken-title">Taken</h3>
-            <ul id="m-taken" class="taken"></ul>
-          </section>
+          <div id="m-taken"></div>
+          <p id="m-screen-empty" class="placeholder" hidden>Geen open Taken in deze Mijlpaal.</p>
+          <div class="m-actions">
+            <button id="m-afronden" type="button" class="secondary">Afronden</button>
+            <button id="m-heropenen" type="button" class="secondary" hidden>Heropenen</button>
+            <button id="m-delete" type="button" class="danger" hidden>Verwijderen…</button>
+          </div>
+        </div>
+      </div>
+
+      <dialog id="mijlpaal-form" class="sheet" aria-labelledby="mf-heading">
+        <h2 id="mf-heading">Nieuwe Mijlpaal</h2>
+        <form id="mf-form" class="quick-add" novalidate>
+          <input id="mf-title" class="field" type="text" autocomplete="off" enterkeyhint="next"
+                 placeholder="Bijvoorbeeld Bruiloft 2027" aria-label="Naam">
+          <p id="mf-error" class="error" role="alert" hidden>Geef de Mijlpaal een naam.</p>
+          <textarea id="mf-description" class="field" rows="3" placeholder="Omschrijving (mag leeg)"
+                    aria-label="Omschrijving"></textarea>
+          <div class="actions">
+            <button id="mf-save" type="submit" class="primary">Opslaan</button>
+            <button id="mf-cancel" type="button" class="secondary">Annuleren</button>
+          </div>
+        </form>
+      </dialog>
+    </section>
           <p id="m-screen-empty" class="placeholder" hidden>Geen open Taken in deze Mijlpaal.</p>
         </div>
       </div>
@@ -156,7 +187,7 @@
       </button>
       <button id="tab-mijlpalen" role="tab" type="button" data-tab="mijlpalen" aria-controls="panel-mijlpalen">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
-        <span>Mijlpalen</span>
+        <span>Indeling</span>
       </button>
     </nav>
 

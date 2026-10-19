@@ -339,10 +339,21 @@ button {
 
 /* The first Soort group sits close under the chips, like the list did. */
 .soort:first-child { margin-top: 0.75rem; }
-.soort h2::first-letter { text-transform: uppercase; }
+.soort :is(h2, h3)::first-letter { text-transform: uppercase; }
 
 .blocked { margin-top: 1.75rem; opacity: 0.6; }
 .blocked h2 { margin: 0; font-size: 0.9375rem; color: var(--muted); }
+
+/* Indeling: a section per way of ordering Nexus, Mijlpalen first. */
+
+.indeling__section + .indeling__section { margin-top: 2rem; }
+.indeling__section .section__head { margin-bottom: 0.5rem; }
+.indeling__section .section__head h2 { margin: 0; font-size: 1.125rem; }
+.indeling__section .link, .crumbbar .m-edit { min-height: 36px; text-decoration: none; font-weight: 600; }
+.crumbbar .m-edit { flex: none; margin-left: auto; }
+/* Changing the indeling is online only; the buttons say so by greying out. */
+.link:disabled, .secondary:disabled, .danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.m-actions { display: grid; gap: 0.5rem; margin-top: 2rem; }
 
 /* Mijlpalen */
 

@@ -289,6 +289,112 @@ test('moving a Taak to a Mijlpaal and out again', async () => {
   assert.equal(server.byNumber(1).milestone, null);
 });
 
+/** @param {ReturnType<typeof createStore>} store @param {string} title */
+const mijlpaal = (store, title) => store.getState().milestones.find((m) => m.title === title);
+
+test('creating a Mijlpaal: straight to GitHub, without a due date', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  const result = await store.createMijlpaal({ title: 'Bruiloft 2027', description: 'Het feest' });
+
+  assert.equal(result, 'saved');
+  const created = server.milestones.find((m) => m.title === 'Bruiloft 2027');
+  assert.equal(created?.description, 'Het feest');
+  assert.equal(created?.due_on, null);
+  assert.equal(mijlpaal(store, 'Bruiloft 2027')?.state, 'open');
+  assert.equal(store.getState().pending, 0);
+});
+
+test('closing a Mijlpaal keeps its Taken; reopening brings it back', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ milestone: server.milestones[0] });
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.editMijlpaal(1, { state: 'closed' }), 'saved');
+  assert.equal(server.milestones[0].state, 'closed');
+  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.state, 'closed');
+  await store.refresh();
+  assert.equal(issue(store, 1)?.milestone?.number, 1);
+
+  assert.equal(await store.editMijlpaal(1, { state: 'open' }), 'saved');
+  assert.equal(server.milestones[0].state, 'open');
+  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.state, 'open');
+});
+
+test('editing the title and description of a Mijlpaal', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  await store.editMijlpaal(1, { title: 'Nieuw huis 2027', description: 'Uitgesteld' });
+
+  assert.equal(server.milestones[0].title, 'Nieuw huis 2027');
+  assert.equal(mijlpaal(store, 'Nieuw huis 2027')?.description, 'Uitgesteld');
+});
+
+test('deleting a Mijlpaal', async () => {
+  const server = createFakeGitHub();
+  server.addMilestone('Weg ermee');
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.deleteMijlpaal(2), 'saved');
+
+  assert.deepEqual(server.milestones.map((m) => m.title), ['Nieuw huis 2026']);
+  assert.equal(mijlpaal(store, 'Weg ermee'), undefined);
+});
+
+test('a Mijlpaal GitHub refuses is reported and the list stays as it was', async () => {
+  const server = createFakeGitHub();
+  server.addMilestone('Bruiloft 2027');
+  const { store } = setup({ server });
+  await store.refresh();
+  const before = store.getState().milestones;
+
+  assert.equal(await store.createMijlpaal({ title: 'Bruiloft 2027', description: '' }), 'refused');
+  assert.equal(await store.editMijlpaal(2, { title: 'Nieuw huis 2026' }), 'refused');
+
+  assert.deepEqual(store.getState().milestones, before);
+  assert.equal(store.getState().failed.length, 2);
+  assert.equal(server.milestones.length, 2);
+});
+
+test('managing Mijlpalen is online only: nothing is queued without a connection', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+  server.state.offline = true;
+
+  assert.equal(await store.createMijlpaal({ title: 'Bruiloft 2027', description: '' }), 'offline');
+  assert.equal(await store.editMijlpaal(1, { state: 'closed' }), 'offline');
+
+  const state = store.getState();
+  assert.equal(state.online, false);
+  assert.equal(state.pending, 0);
+  assert.equal(state.failed.length, 0);
+  server.state.offline = false;
+  await store.flush();
+  await store.refresh();
+  assert.deepEqual(server.milestones.map((m) => [m.title, m.state]), [['Nieuw huis 2026', 'open']]);
+});
+
+test('a refresh that overlaps a Mijlpaal change does not undo it on screen', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  const refreshing = store.refresh();
+  await store.createMijlpaal({ title: 'Bruiloft 2027', description: '' });
+  await refreshing;
+  assert.ok(mijlpaal(store, 'Bruiloft 2027'));
+
+  await store.refresh();
+  assert.ok(mijlpaal(store, 'Bruiloft 2027'));
+});
+
 test('refresh loads which Taken block an open Taak', async () => {
   const server = createFakeGitHub();
   server.addIssue({ title: 'busje regelen' });

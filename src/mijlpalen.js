@@ -1,5 +1,6 @@
 import { kindOf } from './data/model.js';
 import { takenRows } from './taken.js';
+import { groupBySoort } from './soort.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/store.js').Milestone} Milestone */
@@ -7,8 +8,8 @@ import { takenRows } from './taken.js';
 /** @typedef {{ number: number, title: string, progress: Progress }} MijlpaalSummary */
 
 /**
- * The Mijlpalen tab: the open Mijlpalen, each with its progress, and the
- * closed ones apart.
+ * The Mijlpalen section of Indeling: the open Mijlpalen, each with its
+ * progress, and the Afgeronde ones apart. Both go by creation, oldest first.
  * @param {Issue[]} issues
  * @param {Milestone[]} milestones
  */
@@ -20,17 +21,19 @@ export function mijlpalenOverview(issues, milestones) {
     progress: progressOf(issues.filter((i) => i.milestone?.number === m.number)),
   });
   return {
-    open: milestones
-      .filter((m) => m.state === 'open')
-      .sort(byDueDate)
-      .map(summary),
-    closed: milestones.filter((m) => m.state === 'closed').map(summary),
+    open: milestones.filter((m) => m.state === 'open').sort(byCreation).map(summary),
+    closed: milestones.filter((m) => m.state === 'closed').sort(byCreation).map(summary),
   };
 }
 
 /**
- * A Mijlpaal's screen: its open Taken as one list, sorted like the Taken list.
- * They all share this Mijlpaal, so the rows carry no breadcrumb.
+ * A Mijlpaal's screen: its open Taken grouped by Soort and sorted like the
+ * Taken list. They all share this Mijlpaal, so the rows carry no breadcrumb.
+ *
+ * It can be deleted only when nothing has it (Nexus ADR 0004): GitHub would
+ * delete it anyway and take it off those issues. Closed issues and
+ * Boodschappen count too, and so does GitHub's own count, which includes
+ * pull requests the app doesn't load.
  * @param {Issue[]} issues
  * @param {Milestone[]} milestones
  * @param {number} number
@@ -40,11 +43,15 @@ export function mijlpaalView(issues, milestones, number) {
   if (!milestone) return null;
   const inMijlpaal = issues.filter((i) => i.milestone?.number === number);
   const open = inMijlpaal.filter((i) => i.state === 'open' && kindOf(i) === 'taak');
+  const rows = takenRows(issues, open).map((row) => ({ ...row, breadcrumb: [] }));
   return {
+    number,
     title: milestone.title,
     description: milestone.description,
+    state: milestone.state,
     progress: progressOf(inMijlpaal),
-    taken: takenRows(issues, open).map((row) => ({ ...row, breadcrumb: [] })),
+    groups: groupBySoort(rows),
+    canDelete: inMijlpaal.length === 0 && !((milestone.issueCount ?? 0) > 0),
   };
 }
 
@@ -53,10 +60,5 @@ function progressOf(list) {
   return { closed: list.filter((i) => i.state === 'closed').length, total: list.length };
 }
 
-/** @param {Milestone} a @param {Milestone} b */
-function byDueDate(a, b) {
-  if (a.dueOn === b.dueOn) return a.number - b.number;
-  if (a.dueOn === null) return 1;
-  if (b.dueOn === null) return -1;
-  return a.dueOn.localeCompare(b.dueOn);
-}
+/** GitHub numbers Mijlpalen in the order they were made. @param {Milestone} a @param {Milestone} b */
+const byCreation = (a, b) => a.number - b.number;

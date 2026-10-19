@@ -53,25 +53,33 @@ test('lists the open Mijlpalen with how many of their issues are closed', () => 
   );
 });
 
-test('closed Mijlpalen are kept apart; open ones go by due date, undated last', () => {
+test('Afgeronde Mijlpalen are kept apart; both lists go by creation, oldest first', () => {
+  // A due date set before the app stopped setting them doesn't reorder anything.
   const milestones = [
-    milestone({ number: 1, title: 'Zonder datum' }),
-    milestone({ number: 2, title: 'Later', dueOn: '2027-01-01T00:00:00Z' }),
+    milestone({ number: 4, title: 'Nieuwste' }),
+    milestone({ number: 2, title: 'Ouder', dueOn: '2027-01-01T00:00:00Z' }),
+    milestone({ number: 5, title: 'Later klaar', state: 'closed' }),
+    milestone({ number: 1, title: 'Oudste', dueOn: '2028-01-01T00:00:00Z' }),
     milestone({ number: 3, title: 'Klaar', state: 'closed' }),
-    milestone({ number: 4, title: 'Eerst', dueOn: '2026-10-01T00:00:00Z' }),
   ];
   const { open, closed } = mijlpalenOverview([], milestones);
   assert.deepEqual(
     open.map((m) => m.title),
-    ['Eerst', 'Later', 'Zonder datum'],
+    ['Oudste', 'Ouder', 'Nieuwste'],
   );
   assert.deepEqual(
     closed.map((m) => [m.title, m.progress]),
-    [['Klaar', { closed: 0, total: 0 }]],
+    [
+      ['Klaar', { closed: 0, total: 0 }],
+      ['Later klaar', { closed: 0, total: 0 }],
+    ],
   );
 });
 
-test('a Mijlpaal shows its open Taken as one list, without breadcrumbs', () => {
+/** @param {ReturnType<typeof mijlpaalView>} view */
+const rows = (view) => view?.groups.flatMap((g) => g.rows) ?? [];
+
+test('a Mijlpaal shows its open Taken, without breadcrumbs', () => {
   const issues = [
     issue({ title: 'Meubels opmeten', milestone: IN_HUIS }),
     issue({ title: 'Oude Taak', milestone: IN_HUIS, state: 'closed' }),
@@ -81,9 +89,10 @@ test('a Mijlpaal shows its open Taken as one list, without breadcrumbs', () => {
   const view = mijlpaalView(issues, [HUIS], 1);
   assert.ok(view);
   assert.equal(view.title, 'Nieuw huis 2026');
+  assert.equal(view.state, 'open');
   assert.deepEqual(view.progress, { closed: 1, total: 3 });
   assert.deepEqual(
-    view.taken.map((r) => [r.issue.title, r.breadcrumb]),
+    rows(view).map((r) => [r.issue.title, r.breadcrumb]),
     [['Meubels opmeten', []]],
   );
 });
@@ -98,7 +107,7 @@ test('a former Epic and its sub-issues are ordinary Taken in the Mijlpaal', () =
   ];
   const view = mijlpaalView(issues, [HUIS], 1);
   assert.deepEqual(
-    view?.taken.map((r) => r.issue.title).sort(),
+    rows(view).map((r) => r.issue.title).sort(),
     ['Dozen', 'Verhuizen'],
   );
 });
@@ -112,13 +121,48 @@ test('the Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd ones l
   ];
   const view = mijlpaalView(issues, [HUIS], 1);
   assert.deepEqual(
-    view?.taken.map((r) => [r.issue.title, r.waitingFor.length]),
+    rows(view).map((r) => [r.issue.title, r.waitingFor.length]),
     [
       ['nu', 0],
       ['ooit', 0],
       ['geblokkeerd', 1],
     ],
   );
+});
+
+test('the Taken of a Mijlpaal are grouped by Soort like the Taken list, Geen soort last', () => {
+  const issues = [
+    issue({ title: 'los', milestone: IN_HUIS }),
+    issue({ title: 'verven', labels: ['soort: klussen'], milestone: IN_HUIS }),
+    issue({ title: 'offerte', labels: ['soort: administratie'], milestone: IN_HUIS }),
+    issue({ title: 'boren', labels: ['soort: klussen'], milestone: IN_HUIS }),
+  ];
+  const view = mijlpaalView(issues, [HUIS], 1);
+  assert.deepEqual(
+    view?.groups.map((g) => [g.soort, g.rows.map((r) => r.issue.title).sort()]),
+    [
+      ['administratie', ['offerte']],
+      ['klussen', ['boren', 'verven']],
+      [null, ['los']],
+    ],
+  );
+});
+
+test('Verwijderen is offered only when no issue at all has the Mijlpaal', () => {
+  const canDelete = (/** @type {Issue[]} */ issues, m = HUIS) => mijlpaalView(issues, [m], 1)?.canDelete;
+  assert.equal(canDelete([]), true);
+  assert.equal(canDelete([issue({ milestone: { number: 2, title: 'Anders' } })]), true);
+  assert.equal(canDelete([issue({ milestone: IN_HUIS })]), false);
+  // Closed ones and Boodschappen count too: deleting would take it off them.
+  assert.equal(canDelete([issue({ milestone: IN_HUIS, state: 'closed' })]), false);
+  assert.equal(canDelete([issue({ milestone: IN_HUIS, labels: ['boodschappen'] })]), false);
+  // GitHub also counts pull requests, which the app doesn't load.
+  assert.equal(canDelete([], { ...HUIS, issueCount: 1 }), false);
+});
+
+test('an Afgeronde Mijlpaal can still be opened, and says so', () => {
+  const view = mijlpaalView([], [milestone({ number: 1, title: 'Klaar', state: 'closed' })], 1);
+  assert.equal(view?.state, 'closed');
 });
 
 test('an unknown Mijlpaal has no screen', () => {
