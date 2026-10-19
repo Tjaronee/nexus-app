@@ -6,9 +6,9 @@ import { migrate } from '../tools/migrate-epics.js';
 
 const NIEUW_HUIS = 'Nieuw huis 2026';
 
-/** A trimmed-down copy of Nexus as it was before the migration. */
-function nexus() {
-  const server = createFakeGitHub();
+/** A trimmed-down copy of Nexus as it was before the migration. @param {number} [pageSize] */
+function nexus(pageSize) {
+  const server = createFakeGitHub({ pageSize });
   const nieuwHuis = server.milestones[0];
   /** @param {number} number @param {Record<string, any>} [fields] */
   const add = (number, fields = {}) => server.addIssue({ number, title: `Taak ${number}`, milestone: nieuwHuis, ...fields });
@@ -34,7 +34,8 @@ function nexus() {
   add(16, { state: 'closed' });
   server.setParent(16, 15);
 
-  add(24, { ...epic, title: 'Verhuizen', body: 'Spullen van Kraaijenberg naar Hatert.' });
+  // Bodies typed on github.com use CRLF line endings.
+  add(24, { ...epic, title: 'Verhuizen', body: 'Spullen van Kraaijenberg\r\nnaar Hatert.' });
   add(29);
   add(30, { state: 'closed' });
   for (const n of [29, 30]) server.setParent(n, 24);
@@ -66,7 +67,7 @@ test('a dry run lists every change and writes nothing', async () => {
   assert.deepEqual(lines, [
     'Create Mijlpaal "Verkoop eigen woning" with description "Beste Prijs Makelaars maakt move-account voor ons aan"',
     'Create Mijlpaal "Koopcontract nieuwe huis" with no description',
-    'Create Mijlpaal "Verhuizen" with description "Spullen van Kraaijenberg naar Hatert."',
+    'Create Mijlpaal "Verhuizen" with description "Spullen van Kraaijenberg\\nnaar Hatert."',
     'Move #13 "Makelaar kiezen" from "Nieuw huis 2026" to "Verkoop eigen woning"',
     'Move #49 "Taak 49" from "Nieuw huis 2026" to "Verkoop eigen woning"',
     'Move #50 "Taak 50" from "Nieuw huis 2026" to "Verkoop eigen woning"',
@@ -92,7 +93,8 @@ test('a dry run lists every change and writes nothing', async () => {
 });
 
 test('--apply promotes the goal Epics to Mijlpalen and retires every Epic', async () => {
-  const server = nexus();
+  // A page size of 2 makes every list span several pages.
+  const server = nexus(2);
   const lines = await run(server, true);
   assert.equal(lines.at(-1), 'Applied 22 changes.');
 
@@ -102,7 +104,7 @@ test('--apply promotes the goal Epics to Mijlpalen and retires every Epic', asyn
       [NIEUW_HUIS, ''],
       ['Verkoop eigen woning', 'Beste Prijs Makelaars maakt move-account voor ons aan'],
       ['Koopcontract nieuwe huis', ''],
-      ['Verhuizen', 'Spullen van Kraaijenberg naar Hatert.'],
+      ['Verhuizen', 'Spullen van Kraaijenberg\nnaar Hatert.'],
     ],
   );
   for (const n of [13, 20, 46, 57, 49, 50]) assert.equal(milestoneOf(server, n), 'Verkoop eigen woning', `#${n}`);
@@ -134,8 +136,41 @@ test('an existing Mijlpaal with a stale description is updated, not duplicated',
   const server = nexus();
   server.addMilestone('Verhuizen', 'old');
   const lines = await run(server, true);
-  assert.ok(lines.includes('Set description of Mijlpaal "Verhuizen" to "Spullen van Kraaijenberg naar Hatert."'));
+  assert.ok(lines.includes('Set description of Mijlpaal "Verhuizen" to "Spullen van Kraaijenberg\\nnaar Hatert."'));
   assert.deepEqual(server.milestones.filter((ms) => ms.title === 'Verhuizen').map((ms) => ms.description), [
-    'Spullen van Kraaijenberg naar Hatert.',
+    'Spullen van Kraaijenberg\nnaar Hatert.',
   ]);
+});
+
+test('a run that stopped halfway picks up where it left off', async () => {
+  const server = nexus();
+  const verkoop = server.addMilestone('Verkoop eigen woning', 'Beste Prijs Makelaars maakt move-account voor ons aan');
+  server.byNumber(13).milestone = verkoop;
+  const lines = await run(server, true);
+  assert.ok(!lines.some((line) => line.startsWith('Create Mijlpaal "Verkoop eigen woning"')));
+  assert.ok(!lines.some((line) => line.startsWith('Move #13 ')));
+  for (const n of [13, 20, 49]) assert.equal(milestoneOf(server, n), 'Verkoop eigen woning', `#${n}`);
+  assert.equal(server.milestones.filter((ms) => ms.title === 'Verkoop eigen woning').length, 1);
+});
+
+test('a renamed Epic stops the run before anything changes', async () => {
+  const server = nexus();
+  server.byNumber(24).title = 'Verhuizing';
+  await assert.rejects(run(server, true), /Expected #24 to be "Verhuizen", found "Verhuizing"/);
+  assert.deepEqual(server.writes(), []);
+});
+
+test('an unknown open Epic stops the run before anything changes', async () => {
+  const server = nexus();
+  server.addIssue({ number: 90, title: 'Tuin', labels: ['Epic'] });
+  await assert.rejects(run(server, true), /Unexpected open Epics #90 "Tuin"/);
+  assert.deepEqual(server.writes(), []);
+});
+
+test('pull requests with the Epic label are left alone', async () => {
+  const server = nexus();
+  const pr = server.addPullRequest('Epic tooling');
+  pr.labels = [{ name: 'Epic' }];
+  const lines = await run(server);
+  assert.ok(!lines.some((line) => line.includes('Epic tooling')));
 });

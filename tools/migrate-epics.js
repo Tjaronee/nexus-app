@@ -11,9 +11,15 @@ import { GITHUB_API, NEXUS_OWNER, NEXUS_REPO } from '../src/config.js';
 
 const REPO = `/repos/${NEXUS_OWNER}/${NEXUS_REPO}`;
 const EPIC_LABEL = 'Epic';
-// The goal Epics; each becomes a Mijlpaal with the Epic's title. Fixed
-// numbers rather than the label, because the label is gone after a run.
-const PROMOTED = [12, 15, 24];
+// The goal Epics, each with the Mijlpaal it becomes. Fixed numbers rather
+// than the label, because the label is gone after a run; the titles guard
+// against a renamed Epic quietly producing a wrongly named Mijlpaal.
+/** @type {Map<number, string>} */
+const PROMOTED = new Map([
+  [12, 'Verkoop eigen woning'],
+  [15, 'Koopcontract nieuwe huis'],
+  [24, 'Verhuizen'],
+]);
 // "Taken nieuwe huis" was only a bucket: it is closed, and its Taken keep
 // the Mijlpaal they already have.
 const RETIRED = [37];
@@ -73,13 +79,15 @@ async function descendants(github, number, seen = new Set([number])) {
   return found;
 }
 
-/** An Epic's body as a Mijlpaal description. @param {string | null} body */
-const descriptionOf = (body) => (body ?? '').trim();
+// Line endings are normalised because Epic bodies typed on github.com use
+// CRLF; comparing them raw could make every rerun see a changed description.
+/** A text as a Mijlpaal description. @param {string | null | undefined} text */
+const descriptionOf = (text) => (text ?? '').replace(/\r\n/g, '\n').trim();
 
 /**
  * Works out what is still left to do, from the data as it is now.
  * @param {GitHub} github
- * @returns {Promise<Change[]>}
+ * @returns {Promise<{ changes: Change[], milestoneNumbers: Map<string, number> }>}
  */
 async function plan(github) {
   /** @type {Milestone[]} */
@@ -93,30 +101,43 @@ async function plan(github) {
 
   /** @type {Map<number, Issue>} */
   const epics = new Map();
-  for (const number of [...PROMOTED, ...RETIRED]) epics.set(number, await call(github, `${REPO}/issues/${number}`));
+  for (const number of [...PROMOTED.keys(), ...RETIRED]) epics.set(number, await call(github, `${REPO}/issues/${number}`));
 
-  for (const number of PROMOTED) {
+  for (const [number, title] of PROMOTED) {
     const epic = /** @type {Issue} */ (epics.get(number));
+    if (epic.title !== title) throw new Error(`Expected #${number} to be "${title}", found "${epic.title}"; nothing changed`);
     const description = descriptionOf(epic.body);
-    const existing = milestones.find((ms) => ms.title === epic.title);
-    if (!existing) creates.push({ kind: 'create-milestone', title: epic.title, description });
-    else if ((existing.description ?? '') !== description) {
-      creates.push({ kind: 'describe-milestone', number: existing.number, title: epic.title, description });
+    const existing = milestones.find((ms) => ms.title === title);
+    if (!existing) creates.push({ kind: 'create-milestone', title, description });
+    else if (descriptionOf(existing.description) !== description) {
+      creates.push({ kind: 'describe-milestone', number: existing.number, title, description });
     }
     for (const issue of await descendants(github, number)) {
-      if (issue.milestone?.title !== epic.title) moves.push({ kind: 'move', issue, to: epic.title });
+      if (issue.milestone?.title !== title) moves.push({ kind: 'move', issue, to: title });
     }
   }
   for (const epic of epics.values()) {
     if (epic.state === 'open') closes.push({ kind: 'close', issue: epic });
   }
-  /** @type {Issue[]} */
-  const labelled = await all(github, `${REPO}/issues?labels=${EPIC_LABEL}&state=all&per_page=100`);
+  // The issues endpoint also returns pull requests; only issues are migrated.
+  /** @type {(Issue & { pull_request?: unknown })[]} */
+  const labelled = (await all(github, `${REPO}/issues?labels=${EPIC_LABEL}&state=all&per_page=100`)).filter(
+    (item) => !item.pull_request,
+  );
+  // An open Epic this script does not know about would lose its label but
+  // stay open, showing up in the app as a Taak; better to stop and look.
+  const unknown = labelled.filter((issue) => issue.state === 'open' && !epics.has(issue.number));
+  if (unknown.length > 0) {
+    throw new Error(`Unexpected open Epics ${unknown.map(ref).join(', ')}; nothing changed`);
+  }
   /** @type {Change[]} */
   const unlabels = labelled
     .sort((a, b) => a.number - b.number)
     .map((issue) => ({ kind: 'unlabel', issue }));
-  return [...creates, ...moves, ...closes, ...unlabels];
+  return {
+    changes: [...creates, ...moves, ...closes, ...unlabels],
+    milestoneNumbers: new Map(milestones.map((ms) => [ms.title, ms.number])),
+  };
 }
 
 /** @param {Issue} issue */
@@ -126,9 +147,9 @@ const ref = (issue) => `#${issue.number} "${issue.title}"`;
 export function describe(change) {
   switch (change.kind) {
     case 'create-milestone':
-      return `Create Mijlpaal "${change.title}" with ${change.description ? `description "${change.description}"` : 'no description'}`;
+      return `Create Mijlpaal "${change.title}" with ${change.description ? `description ${JSON.stringify(change.description)}` : 'no description'}`;
     case 'describe-milestone':
-      return `Set description of Mijlpaal "${change.title}" to "${change.description}"`;
+      return `Set description of Mijlpaal "${change.title}" to ${JSON.stringify(change.description)}`;
     case 'move': {
       const from = change.issue.milestone ? `"${change.issue.milestone.title}"` : 'no Mijlpaal';
       return `Move ${ref(change.issue)} from ${from} to "${change.to}"`;
@@ -175,7 +196,9 @@ async function carryOut(github, change, numbers) {
         method: 'DELETE',
       });
       // 404: the label was already gone, which is the goal anyway.
-      if (!res.ok && res.status !== 404) throw new Error(`Removing ${EPIC_LABEL} from ${ref(change.issue)} failed: ${res.status}`);
+      if (!res.ok && res.status !== 404) {
+        throw new Error(`Removing ${EPIC_LABEL} from ${ref(change.issue)} failed: ${res.status} ${await res.text()}`);
+      }
       return;
     }
   }
@@ -187,7 +210,7 @@ async function carryOut(github, change, numbers) {
  * @returns {Promise<Change[]>} the planned changes
  */
 export async function migrate({ github, apply, log }) {
-  const changes = await plan(github);
+  const { changes, milestoneNumbers } = await plan(github);
   if (changes.length === 0) {
     log('Nothing left to do.');
     return changes;
@@ -197,12 +220,8 @@ export async function migrate({ github, apply, log }) {
     log(`Dry run: ${changes.length} changes planned, nothing changed. Run with --apply to make them.`);
     return changes;
   }
-  /** @type {Map<string, number>} */
-  const numbers = new Map(
-    (await all(github, `${REPO}/milestones?state=all&per_page=100`)).map((ms) => [ms.title, ms.number]),
-  );
   for (const change of changes) {
-    await carryOut(github, change, numbers);
+    await carryOut(github, change, milestoneNumbers);
     log(describe(change));
   }
   log(`Applied ${changes.length} changes.`);
