@@ -23,7 +23,6 @@ import { $, el, fillSelect, peopleCheckboxes } from './dom.js';
 export function mountDetail({ getStore, getMe, onAddFile }) {
   const dialog = /** @type {HTMLDialogElement} */ ($('detail'));
   const title = /** @type {HTMLTextAreaElement} */ ($('d-title'));
-  const epic = /** @type {HTMLSelectElement} */ ($('d-epic'));
   const mijlpaal = /** @type {HTMLSelectElement} */ ($('d-mijlpaal'));
   const people = $('d-people');
   const bodyView = $('d-body');
@@ -36,9 +35,9 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
 
   /** @type {IssueRef | null} */
   let ref = null;
-  /** What the pickers offered at the last redraw; select values index into these. */
-  /** @type {{ epics: { ref: IssueRef, title: string }[], mijlpalen: { number: number, title: string }[] }} */
-  let offered = { epics: [], mijlpalen: [] };
+  /** What the Mijlpaal picker offered at the last redraw; its value indexes into this. */
+  /** @type {{ mijlpalen: { number: number, title: string }[] }} */
+  let offered = { mijlpalen: [] };
 
   const current = () => {
     const store = getStore();
@@ -135,10 +134,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     });
   }
 
-  epic.addEventListener('change', () => {
-    const chosen = epic.value === '' ? null : offered.epics[Number(epic.value)].ref;
-    edit((store, r) => store.setParent(r, chosen));
-  });
   mijlpaal.addEventListener('change', () => {
     const chosen = mijlpaal.value === '' ? null : offered.mijlpalen[Number(mijlpaal.value)].number;
     edit((store, r) => store.setMilestone(r, chosen));
@@ -255,10 +250,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     if (!store) return;
     const offer = editChoices(store.getState(), issue, getMe());
     offered = offer;
-    if (document.activeElement !== epic) {
-      fillSelect(epic, offer.epics, 'Geen Epic');
-      epic.value = offer.epic < 0 ? '' : String(offer.epic);
-    }
     if (document.activeElement !== mijlpaal) {
       fillSelect(mijlpaal, offer.mijlpalen, 'Geen Mijlpaal');
       mijlpaal.value = offer.mijlpaal < 0 ? '' : String(offer.mijlpaal);

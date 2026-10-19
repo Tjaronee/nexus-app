@@ -4,7 +4,7 @@ import { SOORT_PREFIX, normaliseSoort, soortOf, knownSoorten, groupBySoort } fro
 
 /** Only what Soorten are read from. @param {string[]} labels */
 const withLabels = (labels) =>
-  /** @type {import('../src/data/model.js').Issue} */ (/** @type {unknown} */ ({ labels, state: 'open', subIssues: { total: 0, completed: 0 } }));
+  /** @type {import('../src/data/model.js').Issue} */ (/** @type {unknown} */ ({ labels, state: 'open' }));
 
 test('a Soort is normalised like a Plek: one space, lowercase, fits a label', () => {
   assert.equal(SOORT_PREFIX, 'soort: ');

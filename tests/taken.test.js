@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { takenList, loadFilters, saveFilters, isFiltered, withKnownSoorten, ALL } from '../src/taken.js';
 import { groupBySoort } from '../src/soort.js';
+import { toIssue } from '../src/data/model.js';
 import { memoryStorage } from './memory-storage.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
@@ -23,8 +24,6 @@ function issue(over = {}) {
     labels: [],
     assignees: [],
     milestone: null,
-    parent: null,
-    subIssues: { total: 0, completed: 0 },
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,
@@ -44,15 +43,25 @@ function titles(issues, options = {}) {
   return { free: free.map((r) => r.issue.title), blocked: blocked.map((r) => r.issue.title) };
 }
 
-test('shows open Taken only: no Epics, Boodschappen or closed issues', () => {
+test('shows open Taken only: no Boodschappen or closed issues', () => {
   const list = [
     issue({ title: 'Meubels opmeten' }),
-    issue({ title: 'Verhuizen', labels: ['Epic'] }),
-    issue({ title: 'Opruimen', subIssues: { total: 2, completed: 0 } }),
     issue({ title: 'melk', labels: ['boodschappen'] }),
     issue({ title: 'Oud', state: 'closed', stateReason: 'completed' }),
   ];
   assert.deepEqual(titles(list).free, ['Meubels opmeten']);
+});
+
+test('an issue with sub-issues or the old Epic label, and its sub-issues, are ordinary Taken', () => {
+  // As GitHub sends them: the sub-issue links are still there, and ignored.
+  const raw = (/** @type {object} */ over) =>
+    toIssue({ state: 'open', labels: [], created_at: '2026-09-01T10:00:00Z', ...over });
+  const list = [
+    raw({ number: 1, title: 'Verhuizen', labels: [{ name: 'Epic' }] }),
+    raw({ number: 2, title: 'Opruimen', sub_issues_summary: { total: 1, completed: 0 } }),
+    raw({ number: 3, title: 'Zolder', parent_issue_url: 'https://api.github.com/repos/Tjaronee/Nexus/issues/2' }),
+  ];
+  assert.deepEqual(titles(list).free, ['Verhuizen', 'Opruimen', 'Zolder']);
 });
 
 test('sorts by Urgentie, then Prio; unlabelled counts as binnenkort / middel', () => {
@@ -79,23 +88,21 @@ test('equal Urgentie and Prio keeps the oldest first', () => {
   assert.deepEqual(titles(list).free, ['a', 'b']);
 });
 
-test('a row carries its Prio, Urgentie, assignees and Epic / Mijlpaal breadcrumb', () => {
-  const epic = issue({ title: 'Verhuizen', labels: ['Epic'] });
+test('a row carries its Prio, Urgentie, assignees and Mijlpaal as breadcrumb', () => {
   const taak = issue({
     title: 'Dozen halen',
     labels: ['prio: high'],
-    parent: epic.number,
     milestone: { number: 1, title: 'Nieuw huis 2026' },
     assignees: [person('tjaronee')],
   });
-  const [row] = takenList([epic, taak], { filters: ALL, search: '', me: 'tjaronee' }).free;
+  const [row] = takenList([taak], { filters: ALL, search: '', me: 'tjaronee' }).free;
   assert.equal(row.prio, 'hoog');
   assert.equal(row.urgentie, 'binnenkort');
   assert.deepEqual(row.issue.assignees, [person('tjaronee')]);
-  assert.deepEqual(row.breadcrumb, ['Verhuizen', 'Nieuw huis 2026']);
+  assert.deepEqual(row.breadcrumb, ['Nieuw huis 2026']);
 });
 
-test('the breadcrumb leaves out whatever the Taak does not belong to', () => {
+test('the breadcrumb is empty for a Taak without a Mijlpaal', () => {
   const list = [
     issue({ title: 'los' }),
     issue({ title: 'alleen mijlpaal', milestone: { number: 1, title: 'Nieuw huis 2026' } }),

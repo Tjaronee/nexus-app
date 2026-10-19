@@ -1,4 +1,4 @@
-import { kindOf, EPIC_LABEL, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
+import { PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -8,15 +8,12 @@ import { kindOf, EPIC_LABEL, PRIO_LABELS, URGENTIE_LABELS } from './data/model.j
 /** @typedef {ReturnType<import('./data/store.js').createStore>} Store */
 /**
  * What the quick-add sheet has filled in. `toegewezen` holds logins,
- * `blockedBy` what it is Geblokkeerd door and `blocks` what it Blokkeert. With
- * `isEpic` it makes an Epic, and only the title, body and Mijlpaal count.
+ * `blockedBy` what it is Geblokkeerd door and `blocks` what it Blokkeert.
  * @typedef {{
  *   title: string,
  *   body: string,
- *   isEpic: boolean,
  *   prio: Prio,
  *   urgentie: Urgentie,
- *   epic: IssueRef | null,
  *   mijlpaal: number | null,
  *   toegewezen: string[],
  *   blockedBy: IssueRef[],
@@ -28,10 +25,8 @@ import { kindOf, EPIC_LABEL, PRIO_LABELS, URGENTIE_LABELS } from './data/model.j
 export const DEFAULTS = {
   title: '',
   body: '',
-  isEpic: false,
   prio: 'middel',
   urgentie: 'binnenkort',
-  epic: null,
   mijlpaal: null,
   toegewezen: [],
   blockedBy: [],
@@ -39,12 +34,10 @@ export const DEFAULTS = {
 };
 
 /**
- * Creates the Taak, then puts it under its Epic and records what blocks it
- * and what it Blokkeert.
- * These are queued in order, so they work offline and for an Epic or blocker
- * that is itself still being created. An Epic gets the Epic label and no
- * Prio or Urgentie (Nexus ADR 0004). Returns the new issue's ref, or null
- * when the title is blank.
+ * Creates the Taak, then records what blocks it and what it Blokkeert.
+ * These are queued in order, so they work offline and for a blocker that is
+ * itself still being created. Returns the new issue's ref, or null when the
+ * title is blank.
  * @param {Store} store
  * @param {Draft} draft
  * @returns {IssueRef | null}
@@ -52,21 +45,20 @@ export const DEFAULTS = {
 export function saveDraft(store, draft) {
   const title = draft.title.trim();
   if (!title) return null;
-  const fields = { title, body: draft.body.trim(), milestone: draft.mijlpaal };
-  if (draft.isEpic) return store.create({ ...fields, labels: [EPIC_LABEL] });
   const ref = store.create({
-    ...fields,
+    title,
+    body: draft.body.trim(),
+    milestone: draft.mijlpaal,
     labels: [PRIO_LABELS[draft.prio], URGENTIE_LABELS[draft.urgentie]],
     assignees: draft.toegewezen,
   });
-  if (draft.epic !== null) store.setParent(ref, draft.epic);
   for (const blocker of draft.blockedBy) store.addBlockedBy(ref, blocker);
   for (const blocked of draft.blocks) store.addBlockedBy(blocked, ref);
   return ref;
 }
 
 /**
- * What the "meer" section offers: open Epics and Mijlpalen by name, and who
+ * What the "meer" section offers: open Mijlpalen by name, and who
  * a Taak can be Toegewezen to. That is me, then everyone who has been
  * Toegewezen in Nexus before.
  * @param {{ issues: Issue[], milestones: Milestone[] }} state
@@ -80,10 +72,6 @@ export function choices({ issues, milestones }, me) {
   }
 
   return {
-    epics: issues
-      .filter((i) => i.state === 'open' && kindOf(i) === 'epic')
-      .map((i) => ({ ref: i.ref, title: i.title }))
-      .sort(byTitle),
     mijlpalen: milestones.filter((m) => m.state === 'open').map((m) => ({ number: m.number, title: m.title })).sort(byTitle),
     people,
   };

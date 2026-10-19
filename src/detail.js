@@ -43,25 +43,21 @@ export function assigneeChange(current, chosen) {
 }
 
 /**
- * What the Epic, Mijlpaal and Toegewezen pickers offer for this Taak, and
- * what it has now: `epic` and `mijlpaal` are indexes into the lists (-1 for
- * none), `toegewezen` the logins to tick. An Epic or Mijlpaal it belongs to
- * stays choosable after it closes, and so does anyone it is Toegewezen to.
+ * What the Mijlpaal and Toegewezen pickers offer for this Taak, and what it
+ * has now: `mijlpaal` is an index into the list (-1 for none), `toegewezen`
+ * the logins to tick. A Mijlpaal it belongs to stays choosable after it
+ * closes, and so does anyone it is Toegewezen to.
  * @param {{ issues: Issue[], milestones: Milestone[] }} state
  * @param {Issue} issue
  * @param {string} me the signed-in login
  */
 export function editChoices(state, issue, me) {
-  const { epics, mijlpalen, people } = choices(state, me);
-  const parent = issue.parent === null ? undefined : state.issues.find((i) => i.number === issue.parent);
-  if (parent && !epics.some((e) => e.ref === parent.ref)) epics.push({ ref: parent.ref, title: parent.title });
+  const { mijlpalen, people } = choices(state, me);
   const milestone = issue.milestone;
   if (milestone && !mijlpalen.some((m) => m.number === milestone.number)) mijlpalen.push(milestone);
   const assigned = issue.assignees.map((a) => a.login);
   for (const login of assigned) if (!has(people, login)) people.push(login);
   return {
-    epics,
-    epic: parent ? epics.findIndex((e) => e.ref === parent.ref) : -1,
     mijlpalen,
     mijlpaal: milestone ? mijlpalen.findIndex((m) => m.number === milestone.number) : -1,
     people,

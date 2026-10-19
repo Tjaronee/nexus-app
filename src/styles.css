@@ -284,7 +284,6 @@ button {
   font-size: 0.875rem;
 }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.chip:disabled { background: var(--surface); border-color: var(--border); color: var(--muted); opacity: 0.5; }
 
 .taken { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
 
@@ -358,7 +357,6 @@ button {
   background: var(--surface);
   text-align: left;
 }
-.card--done { opacity: 0.6; }
 .card__head { display: flex; align-items: baseline; gap: 0.75rem; }
 .card__title { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
 .card__count { flex: none; font-size: 0.8125rem; }

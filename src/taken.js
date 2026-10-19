@@ -11,8 +11,8 @@ import { normaliseSoort, soortOf } from './soort.js';
 /** An empty Prio, Urgentie or Soort list means no filter on it. */
 /** @typedef {{ prio: Prio[], urgentie: Urgentie[], wie: Wie, soort: SoortKey[] }} Filters */
 /**
- * One Taak as the list shows it. `breadcrumb` is its Epic and Mijlpaal, where
- * it has them; `waitingFor` the open Taken it is Geblokkeerd by.
+ * One Taak as the list shows it. `breadcrumb` is its Mijlpaal, if it has one;
+ * `waitingFor` the open Taken it is Geblokkeerd by.
  * @typedef {{
  *   issue: Issue,
  *   prio: Prio,
@@ -51,7 +51,7 @@ export function takenList(issues, { filters, search, me }) {
   const terms = normalise(search).split(/\s+/).filter(Boolean);
   const rows = open
     .filter((i) => kindOf(i) === 'taak')
-    .map((issue) => toRow(issue, issues, open))
+    .map((issue) => toRow(issue, open))
     .filter((row) => matchesFilters(row, filters, me.toLowerCase()))
     .filter((row) => matchesSearch(row.issue, terms))
     .sort(byUrgentieThenPrio);
@@ -64,25 +64,24 @@ export function takenList(issues, { filters, search, me }) {
 /**
  * These Taken as list rows, sorted like the Taken list, with the Geblokkeerd
  * ones last.
- * @param {Issue[]} issues all issues, to find Epics and blockers in
+ * @param {Issue[]} issues all issues, to find blockers in
  * @param {Issue[]} taken
  * @returns {Row[]}
  */
 export function takenRows(issues, taken) {
   const open = issues.filter((i) => i.state === 'open');
-  const rows = taken.map((issue) => toRow(issue, issues, open)).sort(byUrgentieThenPrio);
+  const rows = taken.map((issue) => toRow(issue, open)).sort(byUrgentieThenPrio);
   return [...rows.filter((r) => r.waitingFor.length === 0), ...rows.filter((r) => r.waitingFor.length > 0)];
 }
 
-/** @param {Issue} issue @param {Issue[]} issues @param {Issue[]} open @returns {Row} */
-function toRow(issue, issues, open) {
-  const epic = issue.parent === null ? undefined : issues.find((i) => i.number === issue.parent);
+/** @param {Issue} issue @param {Issue[]} open @returns {Row} */
+function toRow(issue, open) {
   return {
     issue,
     prio: prioOf(issue),
     urgentie: urgentieOf(issue),
     soort: soortOf(issue),
-    breadcrumb: [epic?.title, issue.milestone?.title].filter((t) => !!t).map(String),
+    breadcrumb: issue.milestone?.title ? [issue.milestone.title] : [],
     // A blocker that is closed, or not in Nexus, no longer holds the Taak up.
     waitingFor: issue.blockedBy.flatMap((ref) => {
       const blocker = open.find((i) => matchesRef(i, ref));

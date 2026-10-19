@@ -40,7 +40,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   /** @type {Map<string, CachedResponse>} */
   const responses = new Map(cache?.responses ?? []);
   /** @type {QueuedOp[]} */
-  let queue = readJson(storage, QUEUE_KEY) ?? [];
+  let queue = withoutRetiredOps(readJson(storage, QUEUE_KEY) ?? []);
   let online = true;
   /** Bumped by every write GitHub accepted; a refresh that overlaps one is stale. */
   let acceptedWrites = 0;
@@ -397,11 +397,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     addBlockedBy: (ref, blocker) => enqueue({ type: 'blockedBy', ref, blocker, add: true }),
     /** @param {IssueRef} ref @param {IssueRef} blocker */
     removeBlockedBy: (ref, blocker) => enqueue({ type: 'blockedBy', ref, blocker, add: false }),
-    /** Puts a Taak under an Epic, or (with null) takes it out. @param {IssueRef} ref @param {IssueRef | null} parent */
-    setParent(ref, parent) {
-      const previous = issues().find((i) => matchesRef(i, ref))?.parent ?? null;
-      enqueue({ type: 'parent', ref, parent, previous });
-    },
     /** @param {IssueRef} ref @param {number | null} number */
     setMilestone: (ref, number) =>
       enqueue({
@@ -449,6 +444,17 @@ function nextPage(link) {
   if (!url) return null;
   const { pathname, search } = new URL(url);
   return pathname + search;
+}
+
+/**
+ * Drops queued changes of a kind the app no longer makes. An older version
+ * could still have a sub-issue move waiting on the device; it can't be shown
+ * or sent any more, and Nexus doesn't need it (Nexus ADR 0004).
+ * @param {any[]} queue
+ * @returns {QueuedOp[]}
+ */
+function withoutRetiredOps(queue) {
+  return queue.filter((op) => op?.type !== 'parent');
 }
 
 /** @param {Storage} storage @param {string} key */

@@ -33,7 +33,6 @@ test('reads the fields the screens need from a GitHub issue', () => {
   assert.deepEqual(issue.labels, ['prio: high', 'urgency: now']);
   assert.deepEqual(issue.assignees, [{ login: 'tjaronee', avatarUrl: 'https://avatars/t.png' }]);
   assert.deepEqual(issue.milestone, { number: 1, title: 'Nieuw huis 2026' });
-  assert.equal(issue.parent, 24);
   assert.equal(issue.blockedByCount, 2);
 });
 
@@ -47,9 +46,11 @@ test('issues labelled boodschappen are Boodschappen', () => {
   assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'boodschappen' }, { name: 'waar: praxis' }] }))), 'boodschap');
 });
 
-test('issues labelled Epic, or with sub-issues, are Epics', () => {
-  assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'Epic' }] }))), 'epic');
-  assert.equal(kindOf(toIssue(raw({ labels: [], sub_issues_summary: { total: 2, completed: 1 } }))), 'epic');
+test('sub-issue links and the old Epic label make no difference: such issues are Taken', () => {
+  assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'Epic' }] }))), 'taak');
+  assert.equal(kindOf(toIssue(raw({ labels: [], sub_issues_summary: { total: 2, completed: 1 } }))), 'taak');
+  const child = raw({ parent_issue_url: 'https://api.github.com/repos/Tjaronee/Nexus/issues/24' });
+  assert.equal(kindOf(toIssue(child)), 'taak', 'one with a parent issue too');
 });
 
 test('every other issue is a Taak', () => {
