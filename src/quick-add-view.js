@@ -96,7 +96,8 @@ export function mountQuickAdd({ getStore, getMe }) {
   }
 
   /**
-   * Empties every field except the chips, which carry over to the next one.
+   * Empties every field except the chips, Soort included, which carry over to
+   * the next one: unlike a Boodschap's Plekken, a run of Taken often shares them.
    * The choices are fresh, and blockers are searched in the store as it is
    * now, so a Taak just saved can block the next one.
    */

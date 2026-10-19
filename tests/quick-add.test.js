@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { saveDraft, choices, soortFromFilter, DEFAULTS } from '../src/quick-add.js';
-import { takenList, ALL } from '../src/taken.js';
+import { takenList, withKnownSoorten, ALL } from '../src/taken.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -164,6 +164,13 @@ test('quick-add opens without a Soort for no, several, or only the Geen soort fi
   assert.equal(soortFromFilter({ ...ALL, soort: ['klusjes', 'sociaal'] }), null);
   assert.equal(soortFromFilter({ ...ALL, soort: ['klusjes', null] }), null);
   assert.equal(soortFromFilter({ ...ALL, soort: [null] }), null);
+});
+
+test('a remembered Soort filter only gives quick-add its Soort once that Soort is known', () => {
+  const remembered = { ...ALL, soort: ['klusjes'] };
+  assert.equal(soortFromFilter(withKnownSoorten(remembered, [])), null, 'labels not in yet');
+  assert.equal(soortFromFilter(withKnownSoorten(remembered, ['sociaal'])), null, 'deleted meanwhile');
+  assert.equal(soortFromFilter(withKnownSoorten(remembered, ['klusjes', 'sociaal'])), 'klusjes');
 });
 
 test('saves the chosen Soort as its soort: label, also when offline', async () => {

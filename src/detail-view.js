@@ -37,9 +37,9 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
 
   /** @type {IssueRef | null} */
   let ref = null;
-  /** What the pickers offered at the last redraw; the Mijlpaal picker's value indexes into this. */
-  /** @type {{ mijlpalen: { number: number, title: string }[], soorten: string[] }} */
-  let offered = { mijlpalen: [], soorten: [] };
+  /** What the Mijlpaal picker offered at the last redraw; its value indexes into this. */
+  /** @type {{ mijlpalen: { number: number, title: string }[] }} */
+  let offered = { mijlpalen: [] };
 
   const current = () => {
     const store = getStore();
@@ -258,7 +258,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     }
     people.replaceChildren(...peopleCheckboxes(offer.people, offer.toegewezen));
     // Tapping writes straight away; the store change redraws the chips.
-    fillSoortChips(soortChips, offered.soorten, soortOf(issue), (tapped) => edit((s, r) => tapSoortChip(s, r, tapped)));
+    fillSoortChips(soortChips, offer.soorten, soortOf(issue), (tapped) => edit((store, r) => tapSoortChip(store, r, tapped)));
   }
 
   return { open, render };

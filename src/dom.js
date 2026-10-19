@@ -49,10 +49,9 @@ export function fillSelect(select, items, none) {
  */
 export function fillSoortChips(row, soorten, chosen, onTap) {
   row.hidden = soorten.length === 0;
-  // The chips are redrawn, so the tapped one would lose keyboard focus.
-  const focused = [...row.children].indexOf(/** @type {Element} */ (document.activeElement));
-  row.replaceChildren(
-    ...soorten.map((soort) => {
+  replaceKeepingFocus(
+    row,
+    soorten.map((soort) => {
       const chip = /** @type {HTMLButtonElement} */ (el('button', 'chip', soort));
       chip.type = 'button';
       chip.setAttribute('aria-pressed', String(soort === chosen));
@@ -60,5 +59,15 @@ export function fillSoortChips(row, soorten, chosen, onTap) {
       return chip;
     }),
   );
+}
+
+/**
+ * Redraws a row of chips. The tapped chip is replaced too, so focus moves to
+ * the chip in its place, or keyboard users would lose their spot.
+ * @param {HTMLElement} row @param {HTMLElement[]} children
+ */
+export function replaceKeepingFocus(row, children) {
+  const focused = [...row.children].indexOf(/** @type {Element} */ (document.activeElement));
+  row.replaceChildren(...children);
   if (focused >= 0) /** @type {HTMLElement | undefined} */ (row.children[Math.min(focused, row.children.length - 1)])?.focus();
 }

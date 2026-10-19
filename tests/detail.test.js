@@ -200,3 +200,14 @@ test('a Taak with two hand-made soort: labels ends with exactly the chosen one',
   await store.flush();
   assert.deepEqual(serverLabels(taak), ['soort: tuin']);
 });
+
+test('a hand-written soort: label counts as its Soort: tapping it clears it', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Lamp ophangen', labels: ['soort: Klusjes'] });
+  await store.refresh();
+
+  tapSoortChip(store, taak.number, 'klusjes');
+
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), []);
+});

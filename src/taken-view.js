@@ -1,6 +1,6 @@
 import { takenList, loadFilters, saveFilters, isFiltered, withKnownSoorten } from './taken.js';
 import { knownSoorten, groupBySoort, GEEN_SOORT } from './soort.js';
-import { $, el } from './dom.js';
+import { $, el, replaceKeepingFocus } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -94,12 +94,11 @@ export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
       row.replaceChildren();
       return;
     }
-    // The chips are redrawn, so the tapped one would lose keyboard focus.
-    const focused = [...row.children].indexOf(/** @type {Element} */ (document.activeElement));
     /** @type {SoortKey[]} */
     const keys = [...soorten, null];
-    row.replaceChildren(
-      ...keys.map((soort) => {
+    replaceKeepingFocus(
+      row,
+      keys.map((soort) => {
         const button = /** @type {HTMLButtonElement} */ (el('button', 'chip', soort ?? GEEN_SOORT));
         button.type = 'button';
         button.setAttribute('aria-pressed', String(active.soort.includes(soort)));
@@ -107,7 +106,6 @@ export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
         return button;
       }),
     );
-    if (focused >= 0) /** @type {HTMLElement | undefined} */ (row.children[Math.min(focused, row.children.length - 1)])?.focus();
   }
 
   render();
