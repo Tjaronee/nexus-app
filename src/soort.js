@@ -1,21 +1,17 @@
 import { kindOf } from './data/model.js';
+import { labelName } from './text.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** A Soort name, or null for "Geen soort". @typedef {string | null} SoortKey */
 
 export const SOORT_PREFIX = 'soort: ';
-const SOORT_MAX = 50 - SOORT_PREFIX.length;
 
 /** What the "Geen soort" group and chip are called. */
 export const GEEN_SOORT = 'Geen soort';
 
-/**
- * How a Soort is written in its label: the same as a Plek (Nexus ADR 0004),
- * so it fits GitHub's 50 characters after `soort: `.
- * @param {string} name
- */
+/** How a Soort is written in its label: the same way as a Plek (Nexus ADR 0004). @param {string} name */
 export function normaliseSoort(name) {
-  return name.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, SOORT_MAX).trim();
+  return labelName(name, SOORT_PREFIX);
 }
 
 /**
@@ -64,7 +60,7 @@ function byName(a, b) {
 }
 
 /** Alphabetical, "Geen soort" last. @param {SoortKey} a @param {SoortKey} b */
-export function bySoort(a, b) {
+function bySoort(a, b) {
   if (a === null || b === null) return Number(a === null) - Number(b === null);
   return byName(a, b);
 }

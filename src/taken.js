@@ -140,10 +140,19 @@ export function loadFilters(storage) {
     urgentie: onlyKnown(saved.urgentie, URGENTIES),
     wie: WIE.includes(saved.wie) ? saved.wie : ALL.wie,
     // Which Soorten exist is only known once the labels are in; see withKnownSoorten.
-    soort: Array.isArray(saved.soort)
-      ? [...new Set(saved.soort.flatMap((/** @type {unknown} */ s) => (s === null ? [null] : typeof s === 'string' ? [normaliseSoort(s)] : [])))]
-      : [],
+    soort: soortKeys(saved.soort),
   };
+}
+
+/**
+ * The Soort names and "Geen soort" (null) in a stored value, normalised.
+ * @param {unknown} value
+ * @returns {SoortKey[]}
+ */
+function soortKeys(value) {
+  if (!Array.isArray(value)) return [];
+  const keys = value.filter((s) => s === null || typeof s === 'string').map((s) => (s === null ? null : normaliseSoort(s)));
+  return [...new Set(keys)];
 }
 
 /**

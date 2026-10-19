@@ -279,5 +279,5 @@ test('the Soort filter is a multi-select that also filters Geblokkeerd', () => {
     ['klusjes', ['kast']],
   ]);
   assert.deepEqual(titles(list, { filters }).blocked, ['plank']);
-  assert.deepEqual(titles(list, { filters: { ...ALL, soort: [null] } }).free, ['zonder']);
+  assert.deepEqual(titles(list, { filters: { ...ALL, soort: [null] } }), { free: ['zonder'], blocked: [] });
 });

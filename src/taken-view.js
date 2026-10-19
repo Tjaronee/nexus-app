@@ -83,10 +83,16 @@ export function mountTaken({ storage, onOpen, onClose }) {
   function renderSoortChips(soorten, active) {
     const row = $('taken-soorten');
     row.hidden = soorten.length === 0;
+    if (row.hidden) {
+      row.replaceChildren();
+      return;
+    }
+    // The chips are redrawn, so the tapped one would lose keyboard focus.
+    const focused = [...row.children].indexOf(/** @type {Element} */ (document.activeElement));
     /** @type {SoortKey[]} */
     const keys = [...soorten, null];
     row.replaceChildren(
-      ...(row.hidden ? [] : keys).map((soort) => {
+      ...keys.map((soort) => {
         const button = /** @type {HTMLButtonElement} */ (el('button', 'chip', soort ?? GEEN_SOORT));
         button.type = 'button';
         button.setAttribute('aria-pressed', String(active.soort.includes(soort)));
@@ -94,6 +100,7 @@ export function mountTaken({ storage, onOpen, onClose }) {
         return button;
       }),
     );
+    if (focused >= 0) /** @type {HTMLElement | undefined} */ (row.children[Math.min(focused, row.children.length - 1)])?.focus();
   }
 
   render();
