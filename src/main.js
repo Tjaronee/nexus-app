@@ -7,6 +7,7 @@ import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
 import { mountMijlpalen } from './mijlpalen-view.js';
 import { mountSoorten } from './soorten-view.js';
+import { mountPlekken } from './plekken-view.js';
 import { mountBoodschappen } from './boodschappen-view.js';
 import { mountBoodschapAdd } from './boodschap-add-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
@@ -48,6 +49,7 @@ const quickAdd = mountQuickAdd({ getStore: () => store, getMe });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close, onFilter: quickAdd.setFilter });
 const mijlpalen = mountMijlpalen({ getStore: () => store, onOpen: detail.open, onClose: closing.close });
 const soorten = mountSoorten({ getStore: () => store });
+const plekken = mountPlekken({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
 
@@ -111,6 +113,7 @@ function renderLists() {
   taken.update(state?.issues ?? [], getMe(), state?.labels ?? []);
   mijlpalen.update(state?.issues ?? [], state?.milestones ?? [], state?.online ?? true);
   soorten.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
+  plekken.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
   boodschappen.render();
   boodschapAdd.render();
 }

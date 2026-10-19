@@ -108,6 +108,57 @@ export function knownPlekken(labels, issues) {
   return [...new Set([...fromLabels, ...fromIssues].map(normalisePlek))].sort((a, b) => a.localeCompare(b, 'nl'));
 }
 
+/**
+ * The Plekken section on Indeling: every Plek alphabetically, with the labels
+ * it is written as, how many open Boodschappen have it, and how many of those
+ * have no other Plek, so deleting it makes them Geen plek. Closed issues count
+ * for which labels exist, as GitHub's label list is only read in part.
+ * @param {string[]} labels all label names in Nexus
+ * @param {Issue[]} issues
+ * @returns {{ plek: string, labels: string[], open: number, geenPlek: number }[]}
+ */
+export function plekkenOverview(labels, issues) {
+  const issueLabels = issues.flatMap((i) => i.labels);
+  // GitHub label names ignore case: "waar: Praxis" and "waar: praxis" are one
+  // label, deleted once. Spaced differently they are two, and both go.
+  /** @type {Map<string, string>} */
+  const written = new Map();
+  for (const label of [...labels, ...issueLabels]) {
+    if (label.startsWith(PLEK_PREFIX) && !written.has(label.toLowerCase())) written.set(label.toLowerCase(), label);
+  }
+  /** @type {Map<string, string[]>} */
+  const byPlek = new Map();
+  for (const label of written.values()) {
+    const plek = normalisePlek(label.slice(PLEK_PREFIX.length));
+    if (plek) byPlek.set(plek, [...(byPlek.get(plek) ?? []), label]);
+  }
+  const open = issues
+    .filter((i) => i.state === 'open' && kindOf(i) === 'boodschap')
+    .map((i) => new Set(plekkenOf(i).map(normalisePlek)));
+  return [...byPlek]
+    .map(([plek, labels]) => {
+      const having = open.filter((plekken) => plekken.has(plek));
+      return { plek, labels, open: having.length, geenPlek: having.filter((plekken) => plekken.size === 1).length };
+    })
+    .sort((a, b) => a.plek.localeCompare(b.plek, 'nl'));
+}
+
+/**
+ * What deleting a Plek does to its open Boodschappen, for the confirmation.
+ * One with another Plek stays listed there instead.
+ * @param {{ open: number, geenPlek: number }} row
+ */
+export function plekDeleteEffect({ open, geenPlek }) {
+  if (open === 0) return 'Er zijn geen open Boodschappen met deze Plek.';
+  const elsewhere = open - geenPlek;
+  return [
+    geenPlek === 0 ? '' : geenPlek === 1 ? '1 open Boodschap wordt Geen plek.' : `${geenPlek} open Boodschappen worden Geen plek.`,
+    elsewhere === 0 ? '' : elsewhere === 1 ? '1 open Boodschap staat nog bij een andere Plek.' : `${elsewhere} open Boodschappen staan nog bij een andere Plek.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
 /** How a Plek is written in its label (Nexus ADR 0003). @param {string} name */
 export function normalisePlek(name) {
   return labelName(name, PLEK_PREFIX);

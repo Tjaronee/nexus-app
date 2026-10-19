@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boodschappenList, normalisePlek, saveBoodschap, plekChoices, knownPlekken } from '../src/boodschappen.js';
+import { boodschappenList, normalisePlek, saveBoodschap, plekChoices, knownPlekken, plekkenOverview, plekDeleteEffect } from '../src/boodschappen.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -241,4 +241,87 @@ test('two open Boodschappen with the same name are both marked as possibly doubl
 
 test('known Plekken are listed as normalised, once each', () => {
   assert.deepEqual(knownPlekken(['waar: Praxis', 'waar: praxis', 'waar: Albert  Heijn'], [boodschap('melk', ['PRAXIS'])]), ['albert heijn', 'praxis']);
+});
+
+test('the Plekken section lists every Plek alphabetically, with its open Boodschappen', () => {
+  const labels = ['boodschappen', 'soort: klusjes', 'waar: praxis', 'waar: centrum', 'waar: markt'];
+  const issues = [
+    boodschap('schroeven', ['praxis']),
+    boodschap('verf', ['praxis', 'centrum']),
+    boodschap('oud', ['praxis'], { state: 'closed', stateReason: 'completed' }),
+    boodschap('melk'),
+    issue({ title: 'Een Taak met een Plek', labels: ['waar: centrum'] }),
+  ];
+  assert.deepEqual(plekkenOverview(labels, issues), [
+    { plek: 'centrum', labels: ['waar: centrum'], open: 1, geenPlek: 0 },
+    { plek: 'markt', labels: ['waar: markt'], open: 0, geenPlek: 0 },
+    { plek: 'praxis', labels: ['waar: praxis'], open: 2, geenPlek: 1 },
+  ]);
+});
+
+test('a Plek written by hand in two ways is one row, with both labels to delete', () => {
+  const issues = [
+    boodschap('schroeven', ['Praxis']),
+    boodschap('verf', ['praxis', ' praxis ']),
+    boodschap('lijm', ['ALBERT  heijn'], { state: 'closed', stateReason: 'completed' }),
+  ];
+  assert.deepEqual(plekkenOverview(['waar: praxis'], issues), [
+    // A closed Boodschap's label is still a Plek: deleting it is what takes it off.
+    { plek: 'albert heijn', labels: ['waar: ALBERT  heijn'], open: 0, geenPlek: 0 },
+    { plek: 'praxis', labels: ['waar: praxis', 'waar:  praxis '], open: 2, geenPlek: 2 },
+  ]);
+});
+
+test('labels that differ only in case are one label on GitHub, so it is deleted once', () => {
+  assert.deepEqual(plekkenOverview(['waar: Praxis'], [boodschap('verf', ['praxis'])])[0].labels, ['waar: Praxis']);
+});
+
+test('deleting a Plek says which open Boodschappen become Geen plek', () => {
+  assert.equal(plekDeleteEffect({ open: 3, geenPlek: 3 }), '3 open Boodschappen worden Geen plek.');
+  assert.equal(plekDeleteEffect({ open: 1, geenPlek: 1 }), '1 open Boodschap wordt Geen plek.');
+  assert.equal(plekDeleteEffect({ open: 0, geenPlek: 0 }), 'Er zijn geen open Boodschappen met deze Plek.');
+  assert.equal(
+    plekDeleteEffect({ open: 3, geenPlek: 1 }),
+    '1 open Boodschap wordt Geen plek. 2 open Boodschappen staan nog bij een andere Plek.',
+  );
+  assert.equal(plekDeleteEffect({ open: 1, geenPlek: 0 }), '1 open Boodschap staat nog bij een andere Plek.');
+});
+
+test('a deleted Plek is gone everywhere: its Boodschappen are Geen plek and it is no longer offered', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('waar: praxis');
+  server.addLabel('waar: centrum');
+  const schroeven = server.addIssue({ title: 'schroeven', labels: ['boodschappen', 'waar: praxis'] });
+  const verf = server.addIssue({ title: 'verf', labels: ['boodschappen', 'waar: praxis', 'waar: centrum'] });
+  const oud = server.addIssue({ title: 'oud', labels: ['boodschappen', 'waar: praxis'], state: 'closed', state_reason: 'completed' });
+  const store = phone(server);
+  await store.refresh();
+  const [, praxis] = plekkenOverview(store.getState().labels, store.getState().issues);
+
+  for (const label of praxis.labels) assert.equal(await store.deleteLabel(label), 'saved');
+
+  const { labels, issues } = store.getState();
+  assert.deepEqual(groups(list(issues)), [
+    ['centrum', ['verf']],
+    [null, ['schroeven']],
+  ]);
+  assert.deepEqual(find(store, oud.number)?.labels, ['boodschappen']);
+  assert.deepEqual(knownPlekken(labels, issues), ['centrum']);
+  assert.deepEqual(plekChoices(labels, /** @type {Issue} */ (find(store, schroeven.number))), ['centrum']);
+  assert.deepEqual(plekkenOverview(labels, issues).map((p) => p.plek), ['centrum']);
+  assert.ok(find(store, verf.number));
+});
+
+test('a Plek cannot be deleted without a connection', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('waar: praxis');
+  server.addIssue({ title: 'schroeven', labels: ['boodschappen', 'waar: praxis'] });
+  const store = phone(server);
+  await store.refresh();
+  server.state.offline = true;
+
+  assert.equal(await store.deleteLabel('waar: praxis'), 'offline');
+
+  assert.equal(store.getState().pending, 0);
+  assert.deepEqual(knownPlekken(store.getState().labels, store.getState().issues), ['praxis']);
 });
