@@ -200,9 +200,8 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   });
   $('d-reactie-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    let posted = false;
-    edit((store, r) => (posted = postReactie(store, r, reactieText.value)));
-    if (posted) clearReactie();
+    const store = getStore();
+    if (store && ref !== null && postReactie(store, ref, reactieText.value)) clearReactie();
   });
 
   function clearReactie() {
