@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { saveDraft, choices, DEFAULTS } from '../src/quick-add.js';
-import { takenList, ALL } from '../src/taken.js';
+import { saveDraft, choices, soortFromFilter, DEFAULTS } from '../src/quick-add.js';
+import { takenList, withKnownSoorten, ALL } from '../src/taken.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -56,6 +56,7 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
     body: 'Met de schroevendraaier van de buren',
     prio: 'hoog',
     urgentie: 'nu',
+    soort: null,
     mijlpaal: 1,
     toegewezen: ['tjaronee', 'partner'],
     blockedBy: [blocker.number],
@@ -146,4 +147,49 @@ test('offers me first, then everyone who has been Toegewezen before', () => {
   assert.deepEqual(choices({ issues, milestones: [] }, 'tjaronee').people, ['tjaronee', 'partner']);
   assert.deepEqual(choices({ issues, milestones: [] }, 'partner').people, ['partner', 'Tjaronee']);
   assert.deepEqual(choices({ issues, milestones: [] }, '').people, ['partner', 'Tjaronee']);
+});
+
+// Soort
+
+test('a new Taak has no Soort unless one is chosen', () => {
+  assert.equal(DEFAULTS.soort, null);
+});
+
+test('quick-add opens with the Soort when exactly one Soort is filtered on', () => {
+  assert.equal(soortFromFilter({ ...ALL, soort: ['klusjes'] }), 'klusjes');
+});
+
+test('quick-add opens without a Soort for no, several, or only the Geen soort filter', () => {
+  assert.equal(soortFromFilter(ALL), null);
+  assert.equal(soortFromFilter({ ...ALL, soort: ['klusjes', 'sociaal'] }), null);
+  assert.equal(soortFromFilter({ ...ALL, soort: ['klusjes', null] }), null);
+  assert.equal(soortFromFilter({ ...ALL, soort: [null] }), null);
+});
+
+test('a remembered Soort filter only gives quick-add its Soort once that Soort is known', () => {
+  const remembered = { ...ALL, soort: ['klusjes'] };
+  assert.equal(soortFromFilter(withKnownSoorten(remembered, [])), null, 'labels not in yet');
+  assert.equal(soortFromFilter(withKnownSoorten(remembered, ['sociaal'])), null, 'deleted meanwhile');
+  assert.equal(soortFromFilter(withKnownSoorten(remembered, ['klusjes', 'sociaal'])), 'klusjes');
+});
+
+test('saves the chosen Soort as its soort: label, also when offline', async () => {
+  const { server, store } = setup();
+  await store.refresh();
+  server.state.offline = true;
+
+  saveDraft(store, { ...DEFAULTS, title: 'Lamp ophangen', soort: 'klusjes' });
+
+  assert.ok(byTitle(store, 'Lamp ophangen')?.labels.includes('soort: klusjes'), 'shows at once, before GitHub has it');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(store.getState().pending, 1, 'waits while offline');
+  server.state.offline = false;
+  await store.flush();
+  await store.refresh();
+  assert.deepEqual(byTitle(store, 'Lamp ophangen')?.labels.sort(), ['prio: medium', 'soort: klusjes', 'urgency: soon']);
+});
+
+test('offers every known Soort as a chip, alphabetically', () => {
+  const c = choices({ issues: [], milestones: [], labels: ['soort: sociaal', 'prio: high', 'soort: Klusjes'] }, 'tjaronee');
+  assert.deepEqual(c.soorten, ['klusjes', 'sociaal']);
 });

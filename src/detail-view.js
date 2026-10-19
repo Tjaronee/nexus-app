@@ -1,9 +1,10 @@
-import { detailOf, assigneeChange, editChoices, reactieBody, postReactie } from './detail.js';
+import { detailOf, assigneeChange, editChoices, reactieBody, postReactie, tapSoortChip } from './detail.js';
+import { soortOf } from './soort.js';
 import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
 import { parseMarkdown, toggleTask } from './markdown.js';
 import { renderMarkdown } from './markdown-view.js';
-import { $, el, fillSelect, peopleCheckboxes } from './dom.js';
+import { $, el, fillSelect, fillSoortChips, peopleCheckboxes } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -25,6 +26,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   const title = /** @type {HTMLTextAreaElement} */ ($('d-title'));
   const mijlpaal = /** @type {HTMLSelectElement} */ ($('d-mijlpaal'));
   const people = $('d-people');
+  const soortChips = $('d-soorten');
   const bodyView = $('d-body');
   const bodyEditor = $('d-body-editor');
   const bodyText = /** @type {HTMLTextAreaElement} */ ($('d-body-text'));
@@ -255,6 +257,8 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       mijlpaal.value = offer.mijlpaal < 0 ? '' : String(offer.mijlpaal);
     }
     people.replaceChildren(...peopleCheckboxes(offer.people, offer.toegewezen));
+    // Tapping writes straight away; the store change redraws the chips.
+    fillSoortChips(soortChips, offer.soorten, soortOf(issue), (tapped) => edit((store, r) => tapSoortChip(store, r, tapped)));
   }
 
   return { open, render };

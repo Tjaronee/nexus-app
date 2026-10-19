@@ -1,6 +1,6 @@
 import { takenList, loadFilters, saveFilters, isFiltered, withKnownSoorten } from './taken.js';
 import { knownSoorten, groupBySoort, GEEN_SOORT } from './soort.js';
-import { $, el } from './dom.js';
+import { $, el, replaceKeepingFocus } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -12,11 +12,17 @@ import { $, el } from './dom.js';
  * The Taken list in #panel-taken. The controls are static in index.html, so
  * typing in the search box never loses focus; only the lists are redrawn.
  *
- * @param {{ storage: Storage, onOpen: (ref: IssueRef) => void, onClose: (issue: Issue) => void }} deps
+ * @param {{
+ *   storage: Storage,
+ *   onOpen: (ref: IssueRef) => void,
+ *   onClose: (issue: Issue) => void,
+ *   onFilter?: (filters: Filters) => void,
+ * }} deps
  *   `onOpen` is called when a Taak, or the Taak blocking it, is tapped;
- *   `onClose` when its checkbox is ticked.
+ *   `onClose` when its checkbox is ticked; `onFilter` with the filters that
+ *   apply whenever the list is redrawn, so quick-add can follow the Soort.
  */
-export function mountTaken({ storage, onOpen, onClose }) {
+export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
   let filters = loadFilters(storage);
   let search = '';
   /** @type {Issue[]} */
@@ -64,6 +70,7 @@ export function mountTaken({ storage, onOpen, onClose }) {
     const soorten = knownSoorten(labels, issues);
     const active = withKnownSoorten(filters, soorten);
     renderSoortChips(soorten, active);
+    onFilter(active);
 
     const { free, blocked } = takenList(issues, { filters: active, search, me });
     $('taken-groups').replaceChildren(...groupBySoort(free).map((group) => groupElement(group.soort, group.rows, onOpen, onClose)));
@@ -87,12 +94,11 @@ export function mountTaken({ storage, onOpen, onClose }) {
       row.replaceChildren();
       return;
     }
-    // The chips are redrawn, so the tapped one would lose keyboard focus.
-    const focused = [...row.children].indexOf(/** @type {Element} */ (document.activeElement));
     /** @type {SoortKey[]} */
     const keys = [...soorten, null];
-    row.replaceChildren(
-      ...keys.map((soort) => {
+    replaceKeepingFocus(
+      row,
+      keys.map((soort) => {
         const button = /** @type {HTMLButtonElement} */ (el('button', 'chip', soort ?? GEEN_SOORT));
         button.type = 'button';
         button.setAttribute('aria-pressed', String(active.soort.includes(soort)));
@@ -100,7 +106,6 @@ export function mountTaken({ storage, onOpen, onClose }) {
         return button;
       }),
     );
-    if (focused >= 0) /** @type {HTMLElement | undefined} */ (row.children[Math.min(focused, row.children.length - 1)])?.focus();
   }
 
   render();

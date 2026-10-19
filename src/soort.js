@@ -43,6 +43,34 @@ export function knownSoorten(labels, issues = []) {
 }
 
 /**
+ * The Soort after tapping a Soort chip on quick-add or the detail screen:
+ * the tapped one, or none when it was already chosen.
+ * @param {SoortKey} current @param {string} tapped
+ * @returns {SoortKey}
+ */
+export function tapSoort(current, tapped) {
+  return tapped === current ? null : tapped;
+}
+
+/**
+ * The labels to add and remove so a Taak with these labels has `chosen` as
+ * its only Soort (Nexus ADR 0004). A label for it written by hand, such as
+ * "soort: Klusjes", is kept as it is; every other `soort:` label goes, so
+ * two set by hand end as one.
+ * @param {string[]} labels the Taak's labels now
+ * @param {SoortKey} chosen
+ * @returns {{ add: string[], remove: string[] }}
+ */
+export function soortChange(labels, chosen) {
+  const current = labels.filter((l) => l.startsWith(SOORT_PREFIX));
+  const kept = current.find((l) => chosen !== null && normaliseSoort(l.slice(SOORT_PREFIX.length)) === chosen);
+  return {
+    add: chosen === null || kept ? [] : [SOORT_PREFIX + chosen],
+    remove: current.filter((l) => l !== kept),
+  };
+}
+
+/**
  * These rows in one group per Soort, alphabetically, "Geen soort" last. The
  * rows keep their order within a group, and Soorten without rows are left out.
  * @template {{ soort: SoortKey }} R
