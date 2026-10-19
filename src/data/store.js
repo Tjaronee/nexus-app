@@ -47,6 +47,9 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   /** Last response per GET path, so unchanged data costs a free 304. */
   /** @type {Map<string, CachedResponse>} */
   const responses = new Map(cache?.responses ?? []);
+  // Mijlpalen cached by an older version lack issueCount, and a 304 would
+  // keep them that way: fetch them in full once.
+  if (milestones.some((m) => m.issueCount === undefined)) responses.delete(MILESTONES_PATH);
   /** @type {QueuedOp[]} */
   let queue = withoutRetiredOps(readJson(storage, QUEUE_KEY) ?? []);
   let online = true;
@@ -315,13 +318,15 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     if (method === 'DELETE') {
       milestones = milestones.filter((m) => m.number !== change.number);
     } else {
-      const saved = toMilestone(await res.json());
-      milestones = [...milestones.filter((m) => m.number !== saved.number), saved].sort((a, b) => a.number - b.number);
+      // GitHub has it even if its answer breaks off; the refresh below brings it.
+      const saved = await res.json().then(toMilestone, () => null);
+      if (saved) milestones = [...milestones.filter((m) => m.number !== saved.number), saved].sort(byNumber);
     }
     persistCache();
     changed();
-    // Issues show their Mijlpaal's title too; fetch them with it.
-    void refresh();
+    // Issues show their Mijlpaal's title too, so fetch both. A refresh under
+    // way drops its answer for this change, so a new one follows it.
+    void (refreshing ?? Promise.resolve()).then(refresh);
     return 'saved';
   }
 
@@ -394,12 +399,19 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       const onVisible = () => doc.visibilityState === 'visible' && sync();
       const timer = setInterval(onVisible, intervalMs);
       doc.addEventListener('visibilitychange', onVisible);
+      // Online-only actions are disabled at once, not after their first failure.
+      const offline = () => {
+        online = false;
+        changed();
+      };
       win.addEventListener('online', sync);
+      win.addEventListener('offline', offline);
       sync();
       return () => {
         clearInterval(timer);
         doc.removeEventListener('visibilitychange', onVisible);
         win.removeEventListener('online', sync);
+        win.removeEventListener('offline', offline);
       };
     },
     getState: () => ({ issues: issues(), milestones, labels, online, pending: queue.length, failed }),
@@ -503,6 +515,9 @@ const toMilestone = (m) => ({
 
 /** @param {any[]} raw @returns {Milestone[]} */
 const toMilestones = (raw) => raw.map(toMilestone);
+
+/** @param {Milestone} a @param {Milestone} b */
+const byNumber = (a, b) => a.number - b.number;
 
 /** @param {any[]} raw */
 const toIssues = (raw) => raw.filter((r) => !r.pull_request).map(toIssue);

@@ -381,6 +381,45 @@ test('managing Mijlpalen is online only: nothing is queued without a connection'
   assert.deepEqual(server.milestones.map((m) => [m.title, m.state]), [['Nieuw huis 2026', 'open']]);
 });
 
+test('a refused delete leaves the Mijlpaal', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.deleteMijlpaal(99), 'refused');
+
+  assert.equal(store.getState().failed.length, 1);
+  assert.deepEqual(store.getState().milestones.map((m) => m.number), [1]);
+});
+
+test('a Mijlpaal knows how many issues GitHub counts in it, pull requests too', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ milestone: server.milestones[0], state: 'closed' });
+  server.addPullRequest('chore').milestone = server.milestones[0];
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.issueCount, 2);
+});
+
+test('Mijlpalen cached by an older version are fetched in full once, for their issue count', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ milestone: server.milestones[0] });
+  const storage = memoryStorage();
+  await setup({ server, storage }).store.refresh();
+  // As an older version kept them: without issueCount, also in the cached response.
+  const cache = JSON.parse(storage.getItem('nexus.cache') ?? '{}');
+  const strip = (/** @type {any[]} */ list) => list.map(({ issueCount, ...m }) => m);
+  cache.milestones = strip(cache.milestones);
+  for (const [path, entry] of cache.responses) if (path.includes('/milestones')) entry.body = strip(entry.body);
+  storage.setItem('nexus.cache', JSON.stringify(cache));
+
+  const { store } = setup({ server, storage });
+  await store.refresh();
+
+  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.issueCount, 1);
+});
+
 test('a refresh that overlaps a Mijlpaal change does not undo it on screen', async () => {
   const server = createFakeGitHub();
   const { store } = setup({ server });
@@ -393,6 +432,36 @@ test('a refresh that overlaps a Mijlpaal change does not undo it on screen', asy
 
   await store.refresh();
   assert.ok(mijlpaal(store, 'Bruiloft 2027'));
+});
+
+test('a renamed Mijlpaal reaches its Taken, also when a refresh overlapped the rename', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ milestone: server.milestones[0] });
+  const { store } = setup({ server });
+  await store.refresh();
+
+  const refreshing = store.refresh();
+  await store.editMijlpaal(1, { title: 'Nieuw huis 2027' });
+  await refreshing;
+  // No refresh of our own: the store follows up by itself.
+  for (let i = 0; i < 10; i++) await settle();
+
+  assert.equal(issue(store, 1)?.milestone?.title, 'Nieuw huis 2027');
+});
+
+test('losing the connection disables online-only actions at once', async (t) => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  const env = fakeEnv();
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const stop = store.start({ ...env, intervalMs: 20_000 });
+  await settle();
+  assert.equal(store.getState().online, true);
+
+  env.win.dispatchEvent(new Event('offline'));
+
+  assert.equal(store.getState().online, false);
+  stop();
 });
 
 test('refresh loads which Taken block an open Taak', async () => {

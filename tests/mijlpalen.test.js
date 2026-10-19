@@ -112,7 +112,7 @@ test('a former Epic and its sub-issues are ordinary Taken in the Mijlpaal', () =
   );
 });
 
-test('the Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd ones last', () => {
+test('the Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd ones apart', () => {
   const blocker = issue({ title: 'ooit', labels: ['urgency: whenever'], milestone: IN_HUIS });
   const issues = [
     blocker,
@@ -121,12 +121,12 @@ test('the Taken of a Mijlpaal are sorted like the Taken list, Geblokkeerd ones l
   ];
   const view = mijlpaalView(issues, [HUIS], 1);
   assert.deepEqual(
-    rows(view).map((r) => [r.issue.title, r.waitingFor.length]),
-    [
-      ['nu', 0],
-      ['ooit', 0],
-      ['geblokkeerd', 1],
-    ],
+    rows(view).map((r) => r.issue.title),
+    ['nu', 'ooit'],
+  );
+  assert.deepEqual(
+    view?.blocked.map((r) => [r.issue.title, r.waitingFor.length]),
+    [['geblokkeerd', 1]],
   );
 });
 

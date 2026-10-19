@@ -141,6 +141,10 @@
           <div id="m-description" hidden></div>
           <div id="m-progress" class="progress"></div>
           <div id="m-taken"></div>
+          <section id="m-blocked" class="blocked" aria-labelledby="m-blocked-title" hidden>
+            <h3 id="m-blocked-title">Geblokkeerd</h3>
+            <ul id="m-blocked-list" class="taken"></ul>
+          </section>
           <p id="m-screen-empty" class="placeholder" hidden>Geen open Taken in deze Mijlpaal.</p>
           <div class="m-actions">
             <button id="m-afronden" type="button" class="secondary">Afronden</button>
@@ -150,6 +154,7 @@
         </div>
       </div>
 
+      <!-- Inside the panel, unlike the other sheets: it only opens from here, while the panel shows. -->
       <dialog id="mijlpaal-form" class="sheet" aria-labelledby="mf-heading">
         <h2 id="mf-heading">Nieuwe Mijlpaal</h2>
         <form id="mf-form" class="quick-add" novalidate>

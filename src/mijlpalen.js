@@ -27,8 +27,9 @@ export function mijlpalenOverview(issues, milestones) {
 }
 
 /**
- * A Mijlpaal's screen: its open Taken grouped by Soort and sorted like the
- * Taken list. They all share this Mijlpaal, so the rows carry no breadcrumb.
+ * A Mijlpaal's screen: its open Taken like the Taken list, grouped by Soort
+ * with the Geblokkeerd ones apart. They all share this Mijlpaal, so the rows
+ * carry no breadcrumb.
  *
  * It can be deleted only when nothing has it (Nexus ADR 0004): GitHub would
  * delete it anyway and take it off those issues. Closed issues and
@@ -50,8 +51,9 @@ export function mijlpaalView(issues, milestones, number) {
     description: milestone.description,
     state: milestone.state,
     progress: progressOf(inMijlpaal),
-    groups: groupBySoort(rows),
-    canDelete: inMijlpaal.length === 0 && !((milestone.issueCount ?? 0) > 0),
+    groups: groupBySoort(rows.filter((r) => r.waitingFor.length === 0)),
+    blocked: rows.filter((r) => r.waitingFor.length > 0),
+    canDelete: inMijlpaal.length === 0 && (milestone.issueCount ?? 0) === 0,
   };
 }
 

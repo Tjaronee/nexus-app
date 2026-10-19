@@ -1,5 +1,5 @@
 import { mijlpalenOverview, mijlpaalView } from './mijlpalen.js';
-import { groupElement } from './taken-view.js';
+import { groupElement, rowElement } from './taken-view.js';
 import { parseMarkdown } from './markdown.js';
 import { renderMarkdown } from './markdown-view.js';
 import { $, el } from './dom.js';
@@ -51,6 +51,10 @@ export function mountMijlpalen({ getStore, onOpen, onClose }) {
   $('m-heropenen').addEventListener('click', () => setState('open'));
   $('m-delete').addEventListener('click', () => void remove());
   $('mf-cancel').addEventListener('click', () => dialog.close());
+  // Once sent, the sheet waits for GitHub's answer, which decides how it closes.
+  dialog.addEventListener('cancel', (event) => {
+    if (busy) event.preventDefault();
+  });
   $('mf-form').addEventListener('submit', (event) => {
     event.preventDefault();
     void save();
@@ -93,6 +97,7 @@ export function mountMijlpalen({ getStore, onOpen, onClose }) {
       titleInput.focus();
       return;
     }
+    formError.hidden = true;
     const description = descriptionInput.value.trim();
     const number = editing;
     const result = await change((store) =>
@@ -119,7 +124,9 @@ export function mountMijlpalen({ getStore, onOpen, onClose }) {
   async function remove() {
     const milestone = milestones.find((m) => m.number === screen?.mijlpaal);
     if (!milestone || !confirm(`Mijlpaal "${milestone.title}" verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
-    if ((await change((store) => store.deleteMijlpaal(milestone.number))) === 'saved') history.back();
+    const result = await change((store) => store.deleteMijlpaal(milestone.number));
+    // Back to the overview, unless the back button already went there meanwhile.
+    if (result === 'saved' && screen?.mijlpaal === milestone.number) history.back();
   }
 
   /**
@@ -146,7 +153,10 @@ export function mountMijlpalen({ getStore, onOpen, onClose }) {
     for (const id of ['m-add', 'm-edit', 'm-afronden', 'm-heropenen', 'm-delete', 'mf-save']) {
       /** @type {HTMLButtonElement} */ ($(id)).disabled = locked;
     }
+    /** @type {HTMLButtonElement} */ ($('mf-cancel')).disabled = busy;
     $('m-offline').hidden = online;
+    // The notice above is behind the sheet; say it in the sheet too.
+    if (!online && dialog.open) showFormError('Geen verbinding: opslaan kan pas als je weer online bent.');
     $('m-overview').hidden = screen !== null;
     $('m-screen').hidden = screen === null;
     if (screen === null) renderOverview();
@@ -182,7 +192,9 @@ export function mountMijlpalen({ getStore, onOpen, onClose }) {
     $('m-description').replaceChildren(renderMarkdown(parseMarkdown(view.description), null));
     $('m-description').hidden = view.description.trim() === '';
     $('m-taken').replaceChildren(...view.groups.map((g) => groupElement(g.soort, g.rows, onOpen, onClose, 'h3')));
-    $('m-screen-empty').hidden = view.groups.length > 0;
+    $('m-blocked-list').replaceChildren(...view.blocked.map((row) => rowElement(row, onOpen, onClose)));
+    $('m-blocked').hidden = view.blocked.length === 0;
+    $('m-screen-empty').hidden = view.groups.length + view.blocked.length > 0;
   }
 
   render();
