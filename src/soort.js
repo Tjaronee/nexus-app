@@ -1,0 +1,70 @@
+import { kindOf } from './data/model.js';
+
+/** @typedef {import('./data/model.js').Issue} Issue */
+/** A Soort name, or null for "Geen soort". @typedef {string | null} SoortKey */
+
+export const SOORT_PREFIX = 'soort: ';
+const SOORT_MAX = 50 - SOORT_PREFIX.length;
+
+/** What the "Geen soort" group and chip are called. */
+export const GEEN_SOORT = 'Geen soort';
+
+/**
+ * How a Soort is written in its label: the same as a Plek (Nexus ADR 0004),
+ * so it fits GitHub's 50 characters after `soort: `.
+ * @param {string} name
+ */
+export function normaliseSoort(name) {
+  return name.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, SOORT_MAX).trim();
+}
+
+/**
+ * The Soort of a Taak, from its `soort:` label. A Taak has at most one, but
+ * two can be set by hand on github.com; then the alphabetically first counts.
+ * @param {Issue} issue
+ * @returns {SoortKey}
+ */
+export function soortOf(issue) {
+  const soorten = issue.labels
+    .filter((l) => l.startsWith(SOORT_PREFIX))
+    .map((l) => normaliseSoort(l.slice(SOORT_PREFIX.length)))
+    .filter(Boolean)
+    .sort(byName);
+  return soorten[0] ?? null;
+}
+
+/**
+ * Every Soort in Nexus, alphabetically: the `soort:` labels, plus any these
+ * open Taken have that the label list doesn't show yet.
+ * @param {string[]} labels all label names in Nexus
+ * @param {Issue[]} [issues]
+ * @returns {string[]}
+ */
+export function knownSoorten(labels, issues = []) {
+  const fromLabels = labels.filter((l) => l.startsWith(SOORT_PREFIX)).map((l) => normaliseSoort(l.slice(SOORT_PREFIX.length)));
+  const fromIssues = issues.filter((i) => i.state === 'open' && kindOf(i) === 'taak').map(soortOf);
+  return [...new Set([...fromLabels, ...fromIssues])].filter((s) => !!s).map(String).sort(byName);
+}
+
+/**
+ * These rows in one group per Soort, alphabetically, "Geen soort" last. The
+ * rows keep their order within a group, and Soorten without rows are left out.
+ * @template {{ soort: SoortKey }} R
+ * @param {R[]} rows
+ * @returns {{ soort: SoortKey, rows: R[] }[]}
+ */
+export function groupBySoort(rows) {
+  const keys = [...new Set(rows.map((r) => r.soort))].sort(bySoort);
+  return keys.map((soort) => ({ soort, rows: rows.filter((r) => r.soort === soort) }));
+}
+
+/** @param {string} a @param {string} b */
+function byName(a, b) {
+  return a.localeCompare(b, 'nl');
+}
+
+/** Alphabetical, "Geen soort" last. @param {SoortKey} a @param {SoortKey} b */
+export function bySoort(a, b) {
+  if (a === null || b === null) return Number(a === null) - Number(b === null);
+  return byName(a, b);
+}

@@ -1,13 +1,15 @@
 import { normalise } from './text.js';
 import { kindOf, matchesRef, prioOf, urgentieOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
+import { normaliseSoort, soortOf } from './soort.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./data/model.js').Prio} Prio */
 /** @typedef {import('./data/model.js').Urgentie} Urgentie */
+/** @typedef {import('./soort.js').SoortKey} SoortKey */
 /** @typedef {'iedereen' | 'mijn' | 'partner'} Wie */
-/** An empty Prio or Urgentie list means no filter on it. */
-/** @typedef {{ prio: Prio[], urgentie: Urgentie[], wie: Wie }} Filters */
+/** An empty Prio, Urgentie or Soort list means no filter on it. */
+/** @typedef {{ prio: Prio[], urgentie: Urgentie[], wie: Wie, soort: SoortKey[] }} Filters */
 /**
  * One Taak as the list shows it. `breadcrumb` is its Epic and Mijlpaal, where
  * it has them; `waitingFor` the open Taken it is Geblokkeerd by.
@@ -15,6 +17,7 @@ import { kindOf, matchesRef, prioOf, urgentieOf, PRIO_LABELS, URGENTIE_LABELS } 
  *   issue: Issue,
  *   prio: Prio,
  *   urgentie: Urgentie,
+ *   soort: SoortKey,
  *   breadcrumb: string[],
  *   waitingFor: { ref: IssueRef, title: string }[],
  * }} Row
@@ -27,13 +30,13 @@ const URGENTIES = /** @type {Urgentie[]} */ (Object.keys(URGENTIE_LABELS));
 const WIE = ['iedereen', 'mijn', 'partner'];
 
 /** @type {Filters} */
-export const ALL = { prio: [], urgentie: [], wie: 'iedereen' };
+export const ALL = { prio: [], urgentie: [], wie: 'iedereen', soort: [] };
 
 const FILTERS_KEY = 'nexus.takenFilters';
 
 /** Whether these filters hide anything. @param {Filters} filters */
 export function isFiltered(filters) {
-  return filters.prio.length > 0 || filters.urgentie.length > 0 || filters.wie !== ALL.wie;
+  return filters.prio.length > 0 || filters.urgentie.length > 0 || filters.wie !== ALL.wie || filters.soort.length > 0;
 }
 
 /**
@@ -78,6 +81,7 @@ function toRow(issue, issues, open) {
     issue,
     prio: prioOf(issue),
     urgentie: urgentieOf(issue),
+    soort: soortOf(issue),
     breadcrumb: [epic?.title, issue.milestone?.title].filter((t) => !!t).map(String),
     // A blocker that is closed, or not in Nexus, no longer holds the Taak up.
     waitingFor: issue.blockedBy.flatMap((ref) => {
@@ -95,6 +99,7 @@ function toRow(issue, issues, open) {
 function matchesFilters(row, filters, me) {
   if (filters.prio.length > 0 && !filters.prio.includes(row.prio)) return false;
   if (filters.urgentie.length > 0 && !filters.urgentie.includes(row.urgentie)) return false;
+  if (filters.soort.length > 0 && !filters.soort.includes(row.soort)) return false;
   const logins = row.issue.assignees.map((a) => a.login.toLowerCase());
   if (logins.length === 0 || filters.wie === 'iedereen') return true;
   return filters.wie === 'mijn' ? logins.includes(me) : logins.some((l) => l !== me);
@@ -134,7 +139,23 @@ export function loadFilters(storage) {
     prio: onlyKnown(saved.prio, PRIOS),
     urgentie: onlyKnown(saved.urgentie, URGENTIES),
     wie: WIE.includes(saved.wie) ? saved.wie : ALL.wie,
+    // Which Soorten exist is only known once the labels are in; see withKnownSoorten.
+    soort: Array.isArray(saved.soort)
+      ? [...new Set(saved.soort.flatMap((/** @type {unknown} */ s) => (s === null ? [null] : typeof s === 'string' ? [normaliseSoort(s)] : [])))]
+      : [],
   };
+}
+
+/**
+ * These filters without the Soorten that no longer exist. Without any Soort
+ * there is no Soort row to undo a choice with, so then none applies.
+ * @param {Filters} filters
+ * @param {string[]} soorten the known Soorten
+ * @returns {Filters}
+ */
+export function withKnownSoorten(filters, soorten) {
+  const soort = soorten.length === 0 ? [] : filters.soort.filter((s) => s === null || soorten.includes(s));
+  return soort.length === filters.soort.length ? filters : { ...filters, soort };
 }
 
 /** @param {Storage} storage @param {Filters} filters */
