@@ -69,7 +69,6 @@ export function mountMijlpalen({ onOpen, onClose }) {
   function renderMijlpaal(number) {
     const view = mijlpaalView(issues, milestones, number);
     $('m-title').textContent = view?.title ?? '';
-    $('m-screen-missing').textContent = 'Deze Mijlpaal bestaat niet meer.';
     $('m-screen-missing').hidden = view !== null;
     $('m-screen-body').hidden = view === null;
     if (!view) return;
@@ -79,7 +78,6 @@ export function mountMijlpalen({ onOpen, onClose }) {
     $('m-description').hidden = view.description.trim() === '';
     $('m-taken').replaceChildren(...view.taken.map((row) => rowElement(row, onOpen, onClose)));
     $('m-taken-section').hidden = view.taken.length === 0;
-    $('m-screen-empty').textContent = 'Geen open Taken in deze Mijlpaal.';
     $('m-screen-empty').hidden = view.taken.length > 0;
   }
 

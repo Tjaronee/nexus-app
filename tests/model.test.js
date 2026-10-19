@@ -49,7 +49,8 @@ test('issues labelled boodschappen are Boodschappen', () => {
 test('sub-issue links and the old Epic label make no difference: such issues are Taken', () => {
   assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'Epic' }] }))), 'taak');
   assert.equal(kindOf(toIssue(raw({ labels: [], sub_issues_summary: { total: 2, completed: 1 } }))), 'taak');
-  assert.equal(kindOf(toIssue(raw())), 'taak', 'one with a parent issue too');
+  const child = raw({ parent_issue_url: 'https://api.github.com/repos/Tjaronee/Nexus/issues/24' });
+  assert.equal(kindOf(toIssue(child)), 'taak', 'one with a parent issue too');
 });
 
 test('every other issue is a Taak', () => {

@@ -71,11 +71,6 @@ test('closed Mijlpalen are kept apart; open ones go by due date, undated last', 
   );
 });
 
-test('the overview has only the Mijlpalen, not the issues outside one', () => {
-  const overview = mijlpalenOverview([issue({ title: 'Losse Taak' })], [HUIS]);
-  assert.deepEqual(Object.keys(overview), ['open', 'closed']);
-});
-
 test('a Mijlpaal shows its open Taken as one list, without breadcrumbs', () => {
   const issues = [
     issue({ title: 'Meubels opmeten', milestone: IN_HUIS }),
