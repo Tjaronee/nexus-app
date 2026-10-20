@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   pakketDetails, pakkettenList, dutchDate, mapsUrl, localDate,
-  pakketBody, normaliseLocatie, pakketProblem, pakketDraft, savePakket,
+  pakketBody, normaliseLocatie, pakketProblem, pakketDraft, newPakketDraft, savePakket,
 } from '../src/pakketten.js';
 import { toIssue, matchesRef } from '../src/data/model.js';
 import { createStore } from '../src/data/store.js';
@@ -248,6 +248,11 @@ test('the sheet is filled in from a Pakket', () => {
   assert.deepEqual(pakketDraft(pakket('Lamp')), { wat: 'Lamp', tracker: '', verwacht: '', locatie: '' });
 });
 
+test('a new sheet is empty, at Thuis; from a Boodschap, Wat is its name', () => {
+  assert.deepEqual(newPakketDraft(), { wat: '', tracker: '', verwacht: '', locatie: 'Thuis' });
+  assert.deepEqual(newPakketDraft('Stofzuigerzakken'), { wat: 'Stofzuigerzakken', tracker: '', verwacht: '', locatie: 'Thuis' });
+});
+
 // Saving through the store
 
 function setup() {
@@ -326,4 +331,27 @@ test('nothing changed, nothing sent; a renamed Pakket keeps a body the app canno
   await store.flush();
   assert.equal(server.byNumber(ref).title, 'Bureaulamp');
   assert.equal(server.byNumber(ref).body, 'Verwacht: morgen\nLocatie: Buren');
+});
+
+test('a Pakket from a ticked Boodschap has its name and no link to it, and unticking leaves it be', async () => {
+  const { server, store } = setup();
+  const raw = server.addIssue({ title: 'Stofzuigerzakken', body: 'De grote', labels: [{ name: 'boodschappen' }, { name: 'waar: online' }] });
+  await store.refresh();
+  store.close(raw.number, 'completed');
+  const boodschap = /** @type {Issue} */ (find(store, raw.number));
+
+  const saved = savePakket(store, null, newPakketDraft(boodschap.title));
+  await store.flush();
+  store.reopen(raw.number);
+  await store.flush();
+  await store.refresh();
+
+  assert.ok('ref' in saved);
+  const pk = find(store, saved.ref);
+  assert.equal(pk?.title, 'Stofzuigerzakken');
+  assert.deepEqual(pk?.labels, ['pakket']);
+  assert.equal(pk?.state, 'open');
+  assert.equal(pk?.body, 'Locatie: Thuis', 'only the Locatie: no number, note or Plek of the Boodschap');
+  assert.equal(server.byNumber(raw.number).state, 'open');
+  assert.equal(server.byNumber(raw.number).body, 'De grote');
 });

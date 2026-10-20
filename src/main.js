@@ -46,7 +46,8 @@ let stopSync = null;
 let connectedToken = null;
 const getMe = () => session.current()?.user.login ?? '';
 const kennisbank = mountKennisbank({ getStore: () => store });
-const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addFile });
+// The Pakket sheet is a dialog over the Boodschappen tab, so the tab stays.
+const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addFile, onNewPakket: (wat) => pakketten.openNew({ wat }) });
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
 const quickAdd = mountQuickAdd({ getStore: () => store, getMe });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close, onFilter: quickAdd.setFilter });
@@ -55,7 +56,7 @@ const soorten = mountSoorten({ getStore: () => store });
 const plekken = mountPlekken({ getStore: () => store });
 const locaties = mountLocaties({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
-const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
+const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onTick: closing.ticked, onZoom: boodschapAdd.setZoom });
 const pakketten = mountPakketten({ getStore: () => store, onBinnen: closing.binnen, onWeg: closing.weg });
 
 session.subscribe(render);

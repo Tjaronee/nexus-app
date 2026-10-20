@@ -21,11 +21,11 @@ const DRAG_CLICK_MS = 400;
  * In het mandje shows what was bought since the app opened, so it empties
  * each time the app starts, or when "Leegmaken" is pressed.
  *
- * @param {{ getStore: () => Store | null, onRemove: (issue: Issue) => void, onZoom: (zoom: Zoom) => void }} deps
- *   `onRemove` closes a Boodschap that is no longer needed; `onZoom` is told
- *   when a Plek chip is tapped.
+ * @param {{ getStore: () => Store | null, onRemove: (issue: Issue) => void, onTick: (issue: Issue) => void, onZoom: (zoom: Zoom) => void }} deps
+ *   `onRemove` closes a Boodschap that is no longer needed; `onTick` is told
+ *   when one was ticked; `onZoom` is told when a Plek chip is tapped.
  */
-export function mountBoodschappen({ getStore, onRemove, onZoom }) {
+export function mountBoodschappen({ getStore, onRemove, onTick, onZoom }) {
   /** @type {Zoom} */
   let zoom = null;
   let mandjeSince = new Date().toISOString();
@@ -97,6 +97,7 @@ export function mountBoodschappen({ getStore, onRemove, onZoom }) {
       if (!store) return;
       tickedHere = [...tickedHere, item.issue.ref];
       store.close(item.issue.ref, 'completed');
+      onTick(item.issue);
     });
     const name = /** @type {HTMLButtonElement} */ (el('button', 'boodschap__name', item.issue.title));
     name.type = 'button';
