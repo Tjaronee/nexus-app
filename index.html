@@ -110,7 +110,7 @@
                placeholder="Naam van de nieuwe plek" aria-label="Nieuwe plek">
       </form>
     </section>
-    <section id="panel-mijlpalen" class="panel" role="tabpanel" aria-labelledby="tab-mijlpalen" hidden>
+    <section id="panel-mijlpalen" class="panel" role="tabpanel" hidden>
       <p id="m-offline" class="notice small" hidden>Zonder verbinding kun je de indeling bekijken, maar niet aanpassen.</p>
       <!-- Indeling: one section per way of ordering Nexus. Soorten and Plekken follow Mijlpalen. -->
       <div id="m-overview" class="indeling">
@@ -214,11 +214,14 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2l2.2 10h10.3L20 8H6.3"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg>
         <span>Boodschappen</span>
       </button>
-      <button id="tab-mijlpalen" role="tab" type="button" data-tab="mijlpalen" aria-controls="panel-mijlpalen">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
-        <span>Indeling</span>
+      <!-- ⋮ opens the tabs that don't fit in the bar; it shows as selected while one of them is open. -->
+      <button id="tab-more" class="tabbar__more" role="tab" type="button" aria-expanded="false"
+              popovertarget="more-menu" aria-label="Meer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
       </button>
     </nav>
+    <!-- One button per tab in MORE_TABS (src/tabs.js), added by main.js. -->
+    <div id="more-menu" class="more-menu" popover role="group" aria-label="Meer"></div>
 
     <dialog id="quick-add" class="sheet" aria-labelledby="quick-add-title">
       <h2 id="quick-add-title">Nieuwe Taak</h2>
