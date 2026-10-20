@@ -10,7 +10,7 @@ const SNACKBAR_MS = 5000;
  * Closing a Taak: it closes at once, without asking, then a snackbar offers
  * for a few seconds to undo it or to add its Kennisbank file. Closing
  * another Taak meanwhile replaces the snackbar. Removing a Boodschap and
- * marking a Pakket Binnen work the same way, without the file.
+ * marking a Pakket Binnen or Weg work the same way, without the file.
  * @param {{ getStore: () => Store | null, onAddFile: (ref: IssueRef) => void }} deps
  */
 export function mountClosing({ getStore, onAddFile }) {
@@ -62,6 +62,8 @@ export function mountClosing({ getStore, onAddFile }) {
     remove: (issue) => closeWithUndo(issue, 'not_planned', `Verwijderd: ${issue.title}`, false),
     /** Marks a Pakket Binnen (closed as completed), and offers to undo it. @param {Issue} issue */
     binnen: (issue) => closeWithUndo(issue, 'completed', `Binnen: ${issue.title}`, false),
+    /** Marks a Pakket Weg, as it won't come (closed as not planned), and offers to undo it. @param {Issue} issue */
+    weg: (issue) => closeWithUndo(issue, 'not_planned', `Weg: ${issue.title}`, false),
     hide,
   };
 }
