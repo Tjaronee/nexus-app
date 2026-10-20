@@ -13,6 +13,7 @@ export const MORE_TABS = [
   { id: 'mijlpalen', label: 'Indeling' },
 ];
 
+/** @type {ReadonlyArray<Tab>} */
 export const ALL_TABS = [...TABS, ...MORE_TABS];
 
 export const LAST_TAB_KEY = 'nexus.lastTab';

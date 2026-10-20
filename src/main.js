@@ -194,10 +194,12 @@ function setUpTabs() {
   const more = $('tab-more');
   const menu = $('more-menu');
   /** @type {TabId} */
-  let current = 'taken';
+  let current = initialTab(null);
   /** @type {Map<TabId, HTMLButtonElement>} */
   const items = new Map();
   for (const tab of MORE_TABS) {
+    // Its tab button is in the menu, so the panel carries its own name.
+    $(`panel-${tab.id}`).setAttribute('aria-label', tab.label);
     const item = document.createElement('button');
     item.type = 'button';
     item.textContent = tab.label;
@@ -212,8 +214,10 @@ function setUpTabs() {
   menu.addEventListener('toggle', (event) => {
     const open = /** @type {ToggleEvent} */ (event).newState === 'open';
     more.setAttribute('aria-expanded', String(open));
-    if (open) (items.get(current) ?? items.values().next().value)?.focus();
+    const [first] = items.values();
+    if (open) (items.get(current) ?? first)?.focus();
   });
+  const barTabs = TABS.map((tab) => ({ tab, button: $(`tab-${tab.id}`) }));
 
   /** @param {TabId} id */
   function show(id) {
@@ -226,13 +230,16 @@ function setUpTabs() {
         document.title = `${tab.label} · Nexus`;
       }
     }
-    for (const tab of TABS) {
-      $(`tab-${tab.id}`).setAttribute('aria-selected', String(tab.id === id));
-      $(`tab-${tab.id}`).tabIndex = tab.id === id ? 0 : -1;
+    for (const { tab, button } of barTabs) {
+      const selected = tab.id === id;
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
     }
     const behindMore = MORE_TABS.find((t) => t.id === id);
     more.setAttribute('aria-selected', String(behindMore !== undefined));
     more.setAttribute('aria-label', behindMore ? `Meer, nu ${behindMore.label}` : 'Meer');
+    if (behindMore) more.setAttribute('aria-controls', `panel-${id}`);
+    else more.removeAttribute('aria-controls');
     more.tabIndex = behindMore ? 0 : -1;
     for (const [tabId, item] of items) item.setAttribute('aria-current', tabId === id ? 'page' : 'false');
     try {
@@ -242,16 +249,17 @@ function setUpTabs() {
     }
   }
 
-  const bar = [...TABS.map((tab) => $(`tab-${tab.id}`)), more];
-  TABS.forEach((tab) => $(`tab-${tab.id}`).addEventListener('click', () => show(tab.id)));
+  for (const { tab, button } of barTabs) button.addEventListener('click', () => show(tab.id));
+  const bar = [...barTabs.map((b) => b.button), more];
   bar.forEach((button, i) => {
     // Arrow keys move between tabs, as only the selected tab is in the tab order.
-    // Arriving on ⋮ only focuses it; Enter or Space opens its menu.
+    // Arriving on ⋮ only focuses it, and makes it the tab stop; Enter or Space opens its menu.
     button.addEventListener('keydown', (event) => {
       const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
       if (!step) return;
       const next = (i + step + bar.length) % bar.length;
       if (next < TABS.length) show(TABS[next].id);
+      else for (const other of bar) other.tabIndex = other === more ? 0 : -1;
       bar[next].focus();
     });
   });
