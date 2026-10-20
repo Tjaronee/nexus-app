@@ -139,6 +139,17 @@ export function pakketDraft(issue) {
 }
 
 /**
+ * The sheet for a new Pakket: at Thuis, with what it is filled in if given,
+ * as when it comes from a ticked Boodschap. Only the name is taken over, so
+ * the Pakket has no link to the Boodschap.
+ * @param {string} [wat]
+ * @returns {Draft}
+ */
+export function newPakketDraft(wat = '') {
+  return { wat, tracker: '', verwacht: '', locatie: 'Thuis' };
+}
+
+/**
  * Saves the sheet: a new Pakket when `ref` is null, else an edit of that one
  * that sends only what changed. The body is only rewritten when the details
  * differ from what it says, so renaming a Pakket keeps lines written by hand

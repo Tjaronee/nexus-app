@@ -1,4 +1,4 @@
-import { dutchDate, localDate, mapsUrl, pakkettenList, pakketDetails, pakketDraft, normaliseLocatie, savePakket } from './pakketten.js';
+import { dutchDate, localDate, mapsUrl, pakkettenList, pakketDetails, pakketDraft, newPakketDraft, normaliseLocatie, savePakket } from './pakketten.js';
 import { matchesRef } from './data/model.js';
 import { $, el } from './dom.js';
 
@@ -108,7 +108,7 @@ export function mountPakketten({ getStore, onBinnen, onWeg }) {
     $('pk-sheet-title').textContent = 'Nieuw Pakket';
     $('pk-links').hidden = true;
     $('pk-weg').hidden = true;
-    fill({ wat: what, tracker: '', verwacht: '', locatie: 'Thuis' });
+    fill(newPakketDraft(what));
     dialog.showModal();
     // Still inside the tap, so phones open the keyboard.
     wat.focus();
