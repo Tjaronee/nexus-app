@@ -3,7 +3,7 @@ import { $ } from './dom.js';
 import { createStore } from './data/store.js';
 import { createGitHub } from './github.js';
 import { createSession } from './session.js';
-import { TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
+import { TABS, MORE_TABS, ALL_TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
 import { mountMijlpalen } from './mijlpalen-view.js';
 import { mountSoorten } from './soorten-view.js';
@@ -184,19 +184,57 @@ function setUpLogin() {
   });
 }
 
+/**
+ * The tab bar holds TABS and, at its end, ⋮: a popover menu with MORE_TABS.
+ * A tab from that menu opens full-screen like any other, and ⋮ then shows
+ * as the selected tab. The popover closes itself on a tap outside it, on
+ * Escape and on Android's back, without a history entry of its own.
+ */
 function setUpTabs() {
+  const more = $('tab-more');
+  const menu = $('more-menu');
+  /** @type {TabId} */
+  let current = 'taken';
+  /** @type {Map<TabId, HTMLButtonElement>} */
+  const items = new Map();
+  for (const tab of MORE_TABS) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.textContent = tab.label;
+    item.setAttribute('aria-controls', `panel-${tab.id}`);
+    item.addEventListener('click', () => {
+      menu.hidePopover();
+      show(tab.id);
+    });
+    items.set(tab.id, item);
+  }
+  menu.replaceChildren(...items.values());
+  menu.addEventListener('toggle', (event) => {
+    const open = /** @type {ToggleEvent} */ (event).newState === 'open';
+    more.setAttribute('aria-expanded', String(open));
+    if (open) (items.get(current) ?? items.values().next().value)?.focus();
+  });
+
   /** @param {TabId} id */
   function show(id) {
-    for (const tab of TABS) {
+    current = id;
+    for (const tab of ALL_TABS) {
       const selected = tab.id === id;
-      $(`tab-${tab.id}`).setAttribute('aria-selected', String(selected));
-      $(`tab-${tab.id}`).tabIndex = selected ? 0 : -1;
       $(`panel-${tab.id}`).hidden = !selected;
       if (selected) {
         $('tab-title').textContent = tab.label;
         document.title = `${tab.label} · Nexus`;
       }
     }
+    for (const tab of TABS) {
+      $(`tab-${tab.id}`).setAttribute('aria-selected', String(tab.id === id));
+      $(`tab-${tab.id}`).tabIndex = tab.id === id ? 0 : -1;
+    }
+    const behindMore = MORE_TABS.find((t) => t.id === id);
+    more.setAttribute('aria-selected', String(behindMore !== undefined));
+    more.setAttribute('aria-label', behindMore ? `Meer, nu ${behindMore.label}` : 'Meer');
+    more.tabIndex = behindMore ? 0 : -1;
+    for (const [tabId, item] of items) item.setAttribute('aria-current', tabId === id ? 'page' : 'false');
     try {
       storage.setItem(LAST_TAB_KEY, id);
     } catch {
@@ -204,16 +242,17 @@ function setUpTabs() {
     }
   }
 
-  TABS.forEach((tab, i) => {
-    const button = $(`tab-${tab.id}`);
-    button.addEventListener('click', () => show(tab.id));
+  const bar = [...TABS.map((tab) => $(`tab-${tab.id}`)), more];
+  TABS.forEach((tab) => $(`tab-${tab.id}`).addEventListener('click', () => show(tab.id)));
+  bar.forEach((button, i) => {
     // Arrow keys move between tabs, as only the selected tab is in the tab order.
+    // Arriving on ⋮ only focuses it; Enter or Space opens its menu.
     button.addEventListener('keydown', (event) => {
       const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
       if (!step) return;
-      const next = TABS[(i + step + TABS.length) % TABS.length];
-      show(next.id);
-      $(`tab-${next.id}`).focus();
+      const next = (i + step + bar.length) % bar.length;
+      if (next < TABS.length) show(TABS[next].id);
+      bar[next].focus();
     });
   });
 
