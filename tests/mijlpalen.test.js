@@ -84,13 +84,14 @@ test('a Mijlpaal shows its open Taken, without breadcrumbs', () => {
     issue({ title: 'Meubels opmeten', milestone: IN_HUIS }),
     issue({ title: 'Oude Taak', milestone: IN_HUIS, state: 'closed' }),
     issue({ title: 'Melk', milestone: IN_HUIS, labels: ['boodschappen'] }),
+    issue({ title: 'Kast', milestone: IN_HUIS, labels: ['pakket'] }),
     issue({ title: 'Andere mijlpaal', milestone: { number: 2, title: 'Anders' } }),
   ];
   const view = mijlpaalView(issues, [HUIS], 1);
   assert.ok(view);
   assert.equal(view.title, 'Nieuw huis 2026');
   assert.equal(view.state, 'open');
-  assert.deepEqual(view.progress, { closed: 1, total: 3 });
+  assert.deepEqual(view.progress, { closed: 1, total: 4 });
   assert.deepEqual(
     rows(view).map((r) => [r.issue.title, r.breadcrumb]),
     [['Meubels opmeten', []]],

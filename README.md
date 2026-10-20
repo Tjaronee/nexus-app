@@ -1,6 +1,6 @@
 # nexus-app
 
-Phone-first web app (PWA) for our household's tasks (Taken) and shopping list (Boodschappen). The UI is Dutch.
+Phone-first web app (PWA) for our household's tasks (Taken), shopping list (Boodschappen) and the packages on their way to us (Pakketten). The UI is Dutch.
 
 This repo holds **code only**. All data lives as issues in the private [Tjaronee/Nexus](https://github.com/Tjaronee/Nexus) repo, and the app talks to the GitHub API directly from the browser. There is no backend. This page is public, but it holds no data: you only get in with a personal access token that has access to Nexus.
 
@@ -10,7 +10,7 @@ Live at: https://tjaronee.github.io/nexus-app/
 
 The domain language and the architectural decisions are kept in Nexus:
 
-- [CONTEXT.md](https://github.com/Tjaronee/Nexus/blob/main/CONTEXT.md): glossary (Taak, Soort, Mijlpaal, Boodschap, Plek, …)
+- [CONTEXT.md](https://github.com/Tjaronee/Nexus/blob/main/CONTEXT.md): glossary (Taak, Soort, Mijlpaal, Boodschap, Plek, Pakket, Locatie, …)
 - [ADRs](https://github.com/Tjaronee/Nexus/tree/main/docs/adr)
 
 The v1 scope is tracked as issues in this repo.
@@ -28,7 +28,7 @@ On iPhone, add the app to the home screen first and paste the token in the insta
 
 ## Notifications
 
-Every Boodschap is an issue in Nexus, so by default GitHub may notify or email the other partner for each new item. To avoid that, set your watch settings for `Tjaronee/Nexus` to "Participating and @mentions".
+Every Boodschap and Pakket is an issue in Nexus, so by default GitHub may notify or email the other partner for each new item. To avoid that, set your watch settings for `Tjaronee/Nexus` to "Participating and @mentions".
 
 ## Development
 
@@ -42,4 +42,4 @@ The service worker ([sw.js](sw.js)) caches the app shell and uses it when offlin
 
 ## Fallback: the GitHub website
 
-If the app is down, the data stays usable on github.com. The shopping list is `is:open label:boodschappen` (add `label:"waar: praxis"` to filter by Plek), and the task list is `is:open -label:boodschappen`.
+If the app is down, the data stays usable on github.com. The shopping list is `is:open label:boodschappen` (add `label:"waar: praxis"` to filter by Plek), the Pakketten are `is:open label:pakket`, and the task list is `is:open -label:boodschappen -label:pakket`.

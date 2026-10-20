@@ -1,10 +1,11 @@
-/** @typedef {'taken' | 'boodschappen' | 'mijlpalen'} TabId */
+/** @typedef {'taken' | 'boodschappen' | 'pakketten' | 'mijlpalen'} TabId */
 /** @typedef {{ id: TabId, label: string }} Tab */
 
 /** The tabs in the tab bar. @type {ReadonlyArray<Tab>} */
 export const TABS = [
   { id: 'taken', label: 'Taken' },
   { id: 'boodschappen', label: 'Boodschappen' },
+  { id: 'pakketten', label: 'Pakketten' },
 ];
 
 /** The tabs behind ⋮ at the end of the tab bar. A tab added here gets an item in its menu. @type {ReadonlyArray<Tab>} */

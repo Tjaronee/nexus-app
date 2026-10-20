@@ -43,10 +43,11 @@ function titles(issues, options = {}) {
   return { free: free.map((r) => r.issue.title), blocked: blocked.map((r) => r.issue.title) };
 }
 
-test('shows open Taken only: no Boodschappen or closed issues', () => {
+test('shows open Taken only: no Boodschappen, Pakketten or closed issues', () => {
   const list = [
     issue({ title: 'Meubels opmeten' }),
     issue({ title: 'melk', labels: ['boodschappen'] }),
+    issue({ title: 'Stofzuiger', labels: ['pakket'] }),
     issue({ title: 'Oud', state: 'closed', stateReason: 'completed' }),
   ];
   assert.deepEqual(titles(list).free, ['Meubels opmeten']);
@@ -204,6 +205,11 @@ test('search matches title and description, ignoring case and accents', () => {
   assert.deepEqual(titles(list, { search: '  tafel ' }).free, ['Meubels']);
   assert.deepEqual(titles(list, { search: 'bank opmeten' }).free, ['Meubels']);
   assert.equal(titles(list, { search: '' }).free.length, 3);
+});
+
+test('search never finds a Pakket', () => {
+  const list = [issue({ title: 'Lamp ophangen' }), issue({ title: 'Lamp', labels: ['pakket'] })];
+  assert.deepEqual(titles(list, { search: 'lamp' }).free, ['Lamp ophangen']);
 });
 
 test('filters are remembered on the device', () => {

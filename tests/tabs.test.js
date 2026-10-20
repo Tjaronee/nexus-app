@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TABS, MORE_TABS, initialTab } from '../src/tabs.js';
 
-test('the tab bar has Taken and Boodschappen, in that order', () => {
+test('the tab bar has Taken, Boodschappen and Pakketten, in that order', () => {
   assert.deepEqual(
     TABS.map((t) => t.label),
-    ['Taken', 'Boodschappen'],
+    ['Taken', 'Boodschappen', 'Pakketten'],
   );
 });
 
@@ -19,6 +19,7 @@ test('Indeling is behind ⋮, not in the tab bar', () => {
 
 test('opens on the last used tab, also one behind ⋮', () => {
   assert.equal(initialTab('boodschappen'), 'boodschappen');
+  assert.equal(initialTab('pakketten'), 'pakketten');
   assert.equal(initialTab('mijlpalen'), 'mijlpalen');
 });
 
