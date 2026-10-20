@@ -119,7 +119,7 @@
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" hidden>
       <p id="m-offline" class="notice small" hidden>Zonder verbinding kun je de indeling bekijken, maar niet aanpassen.</p>
-      <!-- Indeling: one section per way of ordering Nexus. Soorten and Plekken follow Mijlpalen. -->
+      <!-- Indeling: one section per way of ordering Nexus. Soorten, Plekken and Locaties follow Mijlpalen. -->
       <div id="m-overview" class="indeling">
         <section id="indeling-mijlpalen" class="indeling__section" aria-labelledby="m-section-title">
           <div class="section__head">
@@ -148,6 +148,14 @@
           </div>
           <ul id="p-list" class="plekken"></ul>
           <p id="p-empty" class="muted" hidden>Nog geen Plekken.</p>
+        </section>
+        <!-- Thuis is always listed, so the list is never empty. -->
+        <section id="indeling-locaties" class="indeling__section" aria-labelledby="l-section-title">
+          <div class="section__head">
+            <h2 id="l-section-title">Locaties</h2>
+            <button id="l-add" type="button" class="link">+ Locatie</button>
+          </div>
+          <ul id="l-list" class="locaties"></ul>
         </section>
       </div>
       <div id="m-screen" hidden>
@@ -201,6 +209,20 @@
           <div class="actions">
             <button id="sf-save" type="submit" class="primary">Opslaan</button>
             <button id="sf-cancel" type="button" class="secondary">Annuleren</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog id="locatie-form" class="sheet" aria-labelledby="lf-heading">
+        <h2 id="lf-heading">Nieuwe Locatie</h2>
+        <form id="lf-form" class="quick-add" novalidate>
+          <input id="lf-name" class="field" type="text" autocomplete="off" enterkeyhint="next"
+                 placeholder="Bijvoorbeeld buren" aria-label="Naam">
+          <input id="lf-adres" class="field" type="text" autocomplete="off" enterkeyhint="done" maxlength="100"
+                 placeholder="Adres (mag leeg)" aria-label="Adres">
+          <p id="lf-error" class="error" role="alert" hidden></p>
+          <div class="actions">
+            <button id="lf-save" type="submit" class="primary">Opslaan</button>
+            <button id="lf-cancel" type="button" class="secondary">Annuleren</button>
           </div>
         </form>
       </dialog>
@@ -409,8 +431,8 @@
           </div>
           <fieldset>
             <legend>Locatie</legend>
-            <div class="chips" role="group" aria-label="Locatie">
-              <button id="pk-thuis" type="button" class="chip">Thuis</button>
+            <!-- Thuis and the saved Locaties are drawn before Anders…. -->
+            <div id="pk-locaties" class="chips" role="group" aria-label="Locatie">
               <button id="pk-anders-chip" type="button" class="chip">Anders…</button>
             </div>
           </fieldset>

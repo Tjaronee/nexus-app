@@ -407,6 +407,13 @@ button {
 .soort-row__name, .plek-row__name { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
 .soort-row__count, .plek-row__count { flex: none; }
 .soort-row__remove, .plek-row__remove { flex: none; color: var(--danger); }
+.locaties { list-style: none; margin: 0; padding: 0; }
+.locatie-row { display: flex; align-items: center; gap: 0.75rem; min-height: 48px; border-bottom: 1px solid var(--border); }
+.locatie-row__text { flex: 1; min-width: 0; padding: 0.375rem 0; }
+.locatie-row__name { font-weight: 600; overflow-wrap: anywhere; }
+.locatie-row__adres { overflow-wrap: anywhere; }
+.locatie-row__edit { flex: none; }
+.locatie-row__remove { flex: none; color: var(--danger); }
 
 .group { margin-top: 1.5rem; }
 .group h2, .group h3, .group summary { margin: 0 0 0.5rem; font-size: 0.9375rem; color: var(--muted); }
