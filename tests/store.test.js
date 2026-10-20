@@ -831,3 +831,115 @@ test('a refresh that overlaps a label change does not undo it on screen', async 
   assert.ok(!store.getState().labels.includes('soort: klusjes'));
   assert.deepEqual(issue(store, 1)?.labels, []);
 });
+
+test('labels keep their description, from GitHub and in the cache', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('locatie: buren', 'Dorpsstraat 3');
+  const { store, storage } = setup({ server });
+  await store.refresh();
+
+  assert.ok(store.getState().labels.includes('locatie: buren'));
+  assert.deepEqual(store.getState().labelDescriptions, { 'locatie: buren': 'Dorpsstraat 3' });
+  // Opened again without a connection, from the cache.
+  server.state.offline = true;
+  const { store: again } = setup({ server, storage });
+  assert.deepEqual(again.getState().labelDescriptions, { 'locatie: buren': 'Dorpsstraat 3' });
+});
+
+test('a cache from before label descriptions fetches the labels in full once', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('locatie: buren', 'Dorpsstraat 3');
+  const { store, storage } = setup({ server });
+  await store.refresh();
+  // What an older version kept: names only, with the ETag of the same list.
+  const cache = JSON.parse(storage.getItem('nexus.cache') ?? '{}');
+  delete cache.labelDescriptions;
+  for (const [path, entry] of cache.responses) if (path.includes('/labels')) entry.body = entry.body.map((/** @type {any} */ l) => l.name);
+  storage.setItem('nexus.cache', JSON.stringify(cache));
+
+  const { store: again } = setup({ server, storage });
+  assert.deepEqual(again.getState().labelDescriptions, {});
+  assert.ok(again.getState().labels.includes('locatie: buren'));
+  await again.refresh();
+
+  assert.deepEqual(again.getState().labelDescriptions, { 'locatie: buren': 'Dorpsstraat 3' });
+  assert.ok(again.getState().labels.includes('locatie: buren'));
+});
+
+test('creating a label with a description', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.createLabel('locatie: werk', 'Stationsplein 1'), 'saved');
+
+  assert.deepEqual(server.labels.find((l) => l.name === 'locatie: werk'), { name: 'locatie: werk', description: 'Stationsplein 1' });
+  assert.equal(store.getState().labelDescriptions['locatie: werk'], 'Stationsplein 1');
+  await store.refresh();
+  assert.equal(store.getState().labelDescriptions['locatie: werk'], 'Stationsplein 1');
+});
+
+test('editing a label renames it and changes its description', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('locatie: werk', 'Stationsplein 1');
+  server.addLabel('locatie: buren');
+  server.addIssue({ labels: ['locatie: werk'] });
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.editLabel('locatie: werk', { name: 'locatie: kantoor', description: 'Stationsplein 2' }), 'saved');
+  assert.equal(await store.editLabel('locatie: buren', { description: 'Dorpsstraat 3' }), 'saved');
+
+  assert.deepEqual(
+    server.writes().map((w) => [w.method, w.path]),
+    [['PATCH', '/repos/Tjaronee/Nexus/labels/locatie%3A%20werk'], ['PATCH', '/repos/Tjaronee/Nexus/labels/locatie%3A%20buren']],
+  );
+  assert.deepEqual(server.labels.filter((l) => l.name.startsWith('locatie:')), [
+    { name: 'locatie: kantoor', description: 'Stationsplein 2' },
+    { name: 'locatie: buren', description: 'Dorpsstraat 3' },
+  ]);
+  // On screen at once: GitHub renames it on the issues that have it too.
+  const state = store.getState();
+  assert.ok(state.labels.includes('locatie: kantoor') && !state.labels.includes('locatie: werk'));
+  assert.deepEqual(state.labelDescriptions, { 'locatie: kantoor': 'Stationsplein 2', 'locatie: buren': 'Dorpsstraat 3' });
+  assert.deepEqual(issue(store, 1)?.labels, ['locatie: kantoor']);
+  await store.refresh();
+  assert.deepEqual(store.getState().labelDescriptions, { 'locatie: kantoor': 'Stationsplein 2', 'locatie: buren': 'Dorpsstraat 3' });
+  assert.deepEqual(issue(store, 1)?.labels, ['locatie: kantoor']);
+});
+
+test('clearing a description, and deleting a label with one', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('locatie: werk', 'Stationsplein 1');
+  server.addLabel('locatie: buren', 'Dorpsstraat 3');
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.editLabel('locatie: werk', { description: '' }), 'saved');
+  assert.equal(await store.deleteLabel('locatie: buren'), 'saved');
+
+  assert.deepEqual(store.getState().labelDescriptions, {});
+  assert.ok(!store.getState().labels.includes('locatie: buren'));
+  await store.refresh();
+  assert.deepEqual(store.getState().labelDescriptions, {});
+  assert.deepEqual(serverLabels(server).filter((l) => l.startsWith('locatie:')), ['locatie: werk']);
+});
+
+test('editing a label is online only, and a refused edit is reported', async () => {
+  const server = createFakeGitHub();
+  server.addLabel('locatie: werk');
+  server.addLabel('locatie: buren');
+  const { store } = setup({ server });
+  await store.refresh();
+
+  assert.equal(await store.editLabel('locatie: weg', { description: 'x' }), 'refused');
+  // GitHub label names ignore case, so this one is taken.
+  assert.equal(await store.editLabel('locatie: werk', { name: 'locatie: Buren' }), 'refused');
+  server.state.offline = true;
+  assert.equal(await store.editLabel('locatie: werk', { description: 'x' }), 'offline');
+
+  assert.equal(store.getState().failed.length, 2);
+  assert.equal(store.getState().pending, 0);
+  assert.deepEqual(store.getState().labelDescriptions, {});
+  assert.ok(store.getState().labels.includes('locatie: werk'));
+});

@@ -21,7 +21,7 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     'prio: low', 'prio: medium', 'prio: high',
     'urgency: now', 'urgency: soon', 'urgency: whenever',
     'Epic', 'boodschappen', 'waar: praxis',
-  ].map((name) => ({ name }));
+  ].map((name) => ({ name, description: /** @type {string | null} */ (null) }));
   let nextNumber = 1;
   let clock = Date.parse('2026-09-01T00:00:00Z');
 
@@ -203,8 +203,28 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
       if (labels.some((l) => l.name.toLowerCase() === body.name.toLowerCase())) {
         return reply(422, { message: 'Validation Failed', errors: [{ resource: 'Label', code: 'already_exists', field: 'name' }] });
       }
-      labels.push({ name: body.name });
-      return reply(201, { name: body.name });
+      // GitHub keeps no description as null.
+      const label = { name: body.name, description: body.description || null };
+      labels.push(label);
+      return reply(201, label);
+    }
+    if (m === 'PATCH' && (match = path.match(new RegExp(`^${REPO}/labels/(.+)$`)))) {
+      const name = decodeURIComponent(match[1]);
+      const label = labels.find((l) => l.name.toLowerCase() === name.toLowerCase());
+      if (!label) return reply(404, { message: 'Not Found' });
+      const renamed = body.new_name ?? label.name;
+      if (labels.some((l) => l !== label && l.name.toLowerCase() === renamed.toLowerCase())) {
+        return reply(422, { message: 'Validation Failed', errors: [{ resource: 'Label', code: 'already_exists', field: 'name' }] });
+      }
+      // A rename shows on every issue that has it, closed ones too.
+      for (const issue of issues) {
+        if (!issue.labels.some((/** @type {any} */ l) => l.name === label.name)) continue;
+        issue.labels = issue.labels.map((/** @type {any} */ l) => (l.name === label.name ? { name: renamed } : l));
+        touch(issue);
+      }
+      label.name = renamed;
+      if ('description' in body) label.description = body.description || null;
+      return reply(200, label);
     }
     if (m === 'DELETE' && (match = path.match(new RegExp(`^${REPO}/labels/(.+)$`)))) {
       // GitHub takes a deleted label off every issue that has it, closed ones too.
@@ -343,8 +363,8 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
     comments,
     milestones,
     labels,
-    /** Seeds a label directly on the server. @param {string} name */
-    addLabel: (name) => void labels.push({ name }),
+    /** Seeds a label directly on the server. @param {string} name @param {string} [description] */
+    addLabel: (name, description) => void labels.push({ name, description: description ?? null }),
     addIssue,
     addMilestone,
     addPullRequest,
