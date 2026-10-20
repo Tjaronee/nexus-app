@@ -10,6 +10,7 @@ import { mountSoorten } from './soorten-view.js';
 import { mountPlekken } from './plekken-view.js';
 import { mountBoodschappen } from './boodschappen-view.js';
 import { mountBoodschapAdd } from './boodschap-add-view.js';
+import { mountPakketten } from './pakketten-view.js';
 import { mountQuickAdd } from './quick-add-view.js';
 import { mountDetail } from './detail-view.js';
 import { mountClosing } from './closing-view.js';
@@ -52,6 +53,7 @@ const soorten = mountSoorten({ getStore: () => store });
 const plekken = mountPlekken({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
+const pakketten = mountPakketten({ onBinnen: closing.binnen });
 
 session.subscribe(render);
 session.subscribe(connect);
@@ -116,6 +118,7 @@ function renderLists() {
   plekken.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
   boodschappen.render();
   boodschapAdd.render();
+  pakketten.update(state?.issues ?? []);
 }
 
 /** The small indicator of waiting changes, and a notice for refused ones. */

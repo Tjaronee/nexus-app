@@ -20,6 +20,7 @@ const ISSUES = [
   issue({ number: 2, title: 'Sleutel ophalen' }),
   issue({ number: 3, title: 'Dozen kopen' }),
   issue({ number: 4, title: 'Dozijn eieren', labels: ['boodschappen'] }),
+  issue({ number: 6, title: 'Dozen van bol', labels: ['pakket'] }),
   issue({ number: 5, title: 'Dozen klaar', state: 'closed' }),
   issue({ number: 7, title: 'Dozen inpakken', blockedBy: [1] }),
   issue({ number: 8, title: 'Café opzeggen' }),

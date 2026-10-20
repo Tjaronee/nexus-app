@@ -30,11 +30,12 @@
  */
 /** @typedef {number | string} IssueRef Issue number, or client ID for an issue not created yet. */
 /** @typedef {'completed' | 'not_planned' | 'reopened'} StateReason */
-/** @typedef {'taak' | 'boodschap'} Kind */
+/** @typedef {'taak' | 'boodschap' | 'pakket'} Kind */
 /** @typedef {'laag' | 'middel' | 'hoog'} Prio */
 /** @typedef {'nu' | 'binnenkort' | 'ooit'} Urgentie */
 
 export const BOODSCHAPPEN_LABEL = 'boodschappen';
+export const PAKKET_LABEL = 'pakket';
 
 /** @type {Record<Prio, string>} */
 export const PRIO_LABELS = { laag: 'prio: low', middel: 'prio: medium', hoog: 'prio: high' };
@@ -97,11 +98,12 @@ export function toIssue(raw) {
 
 /**
  * Sub-issue links and old labels don't make a kind of their own: every issue
- * that isn't a Boodschap is a Taak (Nexus ADR 0004).
+ * that isn't a Boodschap or a Pakket is a Taak (Nexus ADR 0004, 0005).
  * @param {Issue} issue @returns {Kind}
  */
 export function kindOf(issue) {
   if (issue.labels.includes(BOODSCHAPPEN_LABEL)) return 'boodschap';
+  if (issue.labels.includes(PAKKET_LABEL)) return 'pakket';
   return 'taak';
 }
 

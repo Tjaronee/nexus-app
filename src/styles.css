@@ -457,6 +457,42 @@ button {
 .plekken legend { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
 #b-remove { margin-top: 0.25rem; }
 
+/* Pakketten */
+
+.pakketten { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.375rem; }
+.pakket {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.pakket__text { flex: 1; min-width: 0; }
+.pakket__title { font-weight: 600; overflow-wrap: anywhere; }
+.pakket__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.pakket__date--overdue { color: var(--danger); font-weight: 600; }
+.pakket__locatie { overflow-wrap: anywhere; }
+a.pakket__locatie { color: var(--accent); }
+.pakket__tracker {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  margin: -0.375rem -0.5rem -0.375rem 0;
+  font-size: 1.125rem;
+  text-decoration: none;
+}
+
 /* Boodschappen quick add */
 
 #panel-boodschappen { padding-bottom: calc(var(--add-bar-h, 0px) + 1.5rem); }

@@ -46,6 +46,10 @@ test('issues labelled boodschappen are Boodschappen', () => {
   assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'boodschappen' }, { name: 'waar: praxis' }] }))), 'boodschap');
 });
 
+test('issues labelled pakket are Pakketten', () => {
+  assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'pakket' }] }))), 'pakket');
+});
+
 test('sub-issue links and the old Epic label make no difference: such issues are Taken', () => {
   assert.equal(kindOf(toIssue(raw({ labels: [{ name: 'Epic' }] }))), 'taak');
   assert.equal(kindOf(toIssue(raw({ labels: [], sub_issues_summary: { total: 2, completed: 1 } }))), 'taak');
