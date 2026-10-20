@@ -1,6 +1,8 @@
 import { kindOf, matchesRef, PAKKET_LABEL } from './data/model.js';
+import { matchLocatie } from './locaties.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
+/** @typedef {import('./locaties.js').Locatie} Locatie */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./quick-add.js').Store} Store */
 /**
@@ -78,12 +80,15 @@ export function localDate(now = new Date()) {
 }
 
 /**
- * Where to look a Locatie up on Google Maps; null for Thuis, which needs no map.
+ * Where to look a Locatie up on Google Maps: the address of the saved
+ * Locatie it matches (compared normalised), else the text itself. Null for
+ * Thuis without an address, which needs no map (Nexus ADR 0005).
  * @param {string} locatie
+ * @param {Locatie[]} [saved]
  */
-export function mapsUrl(locatie) {
-  if (isThuis(locatie)) return null;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locatie)}`;
+export function mapsUrl(locatie, saved = []) {
+  const query = matchLocatie(locatie, saved)?.adres || (isThuis(locatie) ? null : locatie);
+  return query === null ? null : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 /**

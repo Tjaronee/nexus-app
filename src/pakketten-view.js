@@ -1,4 +1,5 @@
 import { dutchDate, localDate, mapsUrl, pakkettenList, pakketDetails, pakketDraft, newPakketDraft, normaliseLocatie, savePakket } from './pakketten.js';
+import { matchLocatie, savedLocaties } from './locaties.js';
 import { matchesRef } from './data/model.js';
 import { $, el } from './dom.js';
 
@@ -8,6 +9,7 @@ import { $, el } from './dom.js';
 /** @typedef {import('./pakketten.js').Item} Item */
 /** @typedef {import('./pakketten.js').Draft} Draft */
 /** @typedef {import('./pakketten.js').Problem} Problem */
+/** @typedef {import('./locaties.js').Locatie} Locatie */
 
 /** @type {Record<Problem, string>} */
 const PROBLEMS = {
@@ -20,7 +22,8 @@ const PROBLEMS = {
  * The Pakketten tab in #panel-pakketten: the open Pakketten, each leading to
  * its tracker and its Locatie on the map. "Today", for what is overdue, is
  * this phone's date when the list is drawn. The + button and tapping a
- * Pakket open one sheet, to add or to edit one.
+ * Pakket open one sheet, to add or to edit one. Its Locatie chips are Thuis,
+ * the saved Locaties and Anders…; a saved Locatie's address is used for the map.
  * @param {{ getStore: () => Store | null, onBinnen: (issue: Issue) => void, onWeg: (issue: Issue) => void }} deps
  *   `onBinnen` closes a Pakket that arrived, `onWeg` one that won't come.
  */
@@ -34,11 +37,23 @@ export function mountPakketten({ getStore, onBinnen, onWeg }) {
   const error = $('pk-error');
   /** The Pakket being edited, or null for a new one. @type {IssueRef | null} */
   let editing = null;
-  /** Whether the Thuis chip is on, rather than Anders…. */
-  let thuis = true;
+  /** The saved Locaties, Thuis first. @type {Locatie[]} */
+  let locaties = savedLocaties([], {});
+  /**
+   * The Locatie of the chip that is on, as it will be written, or null for
+   * Anders…. When editing a Pakket at a saved Locatie it is the Pakket's own
+   * text, so saving leaves it as it was.
+   * @type {string | null}
+   */
+  let chosen = 'Thuis';
 
-  /** @param {Issue[]} issues */
-  function update(issues) {
+  /**
+   * Redraws the list, and the sheet's chips, with the latest Pakketten and saved Locaties.
+   * @param {Issue[]} issues @param {Locatie[]} nextLocaties
+   */
+  function update(issues, nextLocaties) {
+    locaties = nextLocaties;
+    if (dialog.open) render();
     const items = pakkettenList(issues, localDate());
     $('pk-list').replaceChildren(...items.map(row));
     $('pk-empty').hidden = items.length > 0;
@@ -84,9 +99,9 @@ export function mountPakketten({ getStore, onBinnen, onWeg }) {
     return li;
   }
 
-  /** 📍 and the Locatie, a link to the map except for Thuis. @param {string | null} name */
+  /** 📍 and the Locatie, a link to the map except for Thuis without an address. @param {string | null} name */
   function locatie(name) {
-    const url = name === null ? null : mapsUrl(name);
+    const url = name === null ? null : mapsUrl(name, locaties);
     if (url === null) return el('span', 'pakket__locatie', `📍 ${name ?? 'Locatie onbekend'}`);
     const link = /** @type {HTMLAnchorElement} */ (el('a', 'pakket__locatie', `📍 ${name}`));
     link.href = url;
@@ -125,7 +140,7 @@ export function mountPakketten({ getStore, onBinnen, onWeg }) {
     open.hidden = details.tracker === null;
     if (details.tracker) open.href = details.tracker;
     const map = /** @type {HTMLAnchorElement} */ ($('pk-kaart'));
-    const url = details.locatie === null ? null : mapsUrl(details.locatie);
+    const url = details.locatie === null ? null : mapsUrl(details.locatie, locaties);
     map.hidden = url === null;
     if (url) map.href = url;
     $('pk-links').hidden = open.hidden && map.hidden;
@@ -140,32 +155,50 @@ export function mountPakketten({ getStore, onBinnen, onWeg }) {
     tracker.value = draft.tracker;
     verwacht.value = draft.verwacht;
     // A Pakket without a Locatie is not at Thuis: Anders…, empty, until one is typed.
-    thuis = draft.locatie !== '' && normaliseLocatie(draft.locatie) === 'Thuis';
-    anders.value = thuis ? '' : draft.locatie;
+    chosen = matchLocatie(draft.locatie, locaties) ? normaliseLocatie(draft.locatie) : null;
+    anders.value = chosen === null ? draft.locatie : '';
     error.hidden = true;
     render();
   }
 
   function render() {
-    $('pk-thuis').setAttribute('aria-pressed', String(thuis));
-    $('pk-anders-chip').setAttribute('aria-pressed', String(!thuis));
-    anders.hidden = thuis;
+    // A saved Locatie deleted meanwhile is kept, as Anders… text.
+    const on = chosen === null ? null : matchLocatie(chosen, locaties);
+    if (chosen !== null && !on) {
+      anders.value = chosen;
+      chosen = null;
+    }
+    const chips = locaties.map((l) => {
+      const chip = /** @type {HTMLButtonElement} */ (el('button', 'chip', l.locatie));
+      chip.type = 'button';
+      chip.setAttribute('aria-pressed', String(l === on));
+      chip.addEventListener('click', () => {
+        chosen = l.locatie;
+        error.hidden = true;
+        render();
+      });
+      return chip;
+    });
+    // The chips are redrawn under a tap; keep focus on the same one.
+    const group = $('pk-locaties');
+    const andersChip = $('pk-anders-chip');
+    const focused = group.contains(document.activeElement) ? document.activeElement?.textContent : null;
+    group.replaceChildren(...chips, andersChip);
+    const same = focused ? [...group.children].find((c) => c.textContent === focused) : null;
+    if (same instanceof HTMLElement) same.focus();
+    andersChip.setAttribute('aria-pressed', String(chosen === null));
+    anders.hidden = chosen !== null;
     $('pk-clear-date').hidden = verwacht.value === '';
   }
 
   /** @returns {Draft} */
   function read() {
-    return { wat: wat.value, tracker: tracker.value, verwacht: verwacht.value, locatie: thuis ? 'Thuis' : anders.value };
+    return { wat: wat.value, tracker: tracker.value, verwacht: verwacht.value, locatie: chosen ?? anders.value };
   }
 
   $('add-pakket').addEventListener('click', () => openNew());
-  $('pk-thuis').addEventListener('click', () => {
-    thuis = true;
-    error.hidden = true;
-    render();
-  });
   $('pk-anders-chip').addEventListener('click', () => {
-    thuis = false;
+    chosen = null;
     render();
     anders.focus();
   });

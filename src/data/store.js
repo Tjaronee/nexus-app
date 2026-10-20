@@ -15,7 +15,8 @@ import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
  */
 /** @typedef {{ title?: string, description?: string, state?: 'open' | 'closed' }} MijlpaalFields */
 /** @typedef {{ type: 'mijlpaal', action: 'create' | 'edit' | 'delete', number: number | null }} MijlpaalChange */
-/** @typedef {{ type: 'label', action: 'create' | 'delete', name: string }} LabelChange */
+/** @typedef {{ type: 'label', action: 'create' | 'edit' | 'delete', name: string }} LabelChange */
+/** A label's new name and description; what is left out stays. @typedef {{ name?: string, description?: string }} LabelFields */
 /**
  * How an online-only change went: GitHub has it, GitHub refused it (the
  * failure banner says so), or there was no connection and nothing happened.
@@ -52,9 +53,14 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   let milestones = cache?.milestones ?? [];
   /** @type {string[]} All label names in Nexus. */
   let labels = cache?.labels ?? [];
+  /** @type {Record<string, string>} Label name → description, for the labels that have one. */
+  let labelDescriptions = cache?.labelDescriptions ?? {};
   /** Last response per GET path, so unchanged data costs a free 304. */
   /** @type {Map<string, CachedResponse>} */
   const responses = new Map(cache?.responses ?? []);
+  // Labels cached by an older version are names only, and a 304 would keep
+  // them that way: fetch them in full once.
+  if (cache && !cache.labelDescriptions) responses.delete(LABELS_PATH);
   // Mijlpalen cached by an older version lack issueCount, and a 304 would
   // keep them that way: fetch them in full once.
   if (milestones.some((m) => m.issueCount === undefined)) responses.delete(MILESTONES_PATH);
@@ -118,7 +124,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   function persistCache() {
     // Comments are only kept for the session; the rest is what the app opens with.
     const kept = [...responses].filter(([path]) => !path.includes('/comments'));
-    writeJson(storage, CACHE_KEY, { issues: base, milestones, labels, responses: kept });
+    writeJson(storage, CACHE_KEY, { issues: base, milestones, labels, labelDescriptions, responses: kept });
   }
 
   function persistQueue() {
@@ -353,25 +359,43 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   }
 
   /**
-   * Creates or deletes a label in Nexus, such as a Soort's or a Plek's.
+   * Creates, edits or deletes a label in Nexus, such as a Soort's, a Plek's
+   * or a Locatie's.
    * @param {LabelChange} change
+   * @param {LabelFields} [fields] for create and edit
    * @returns {Promise<ChangeResult>}
    */
-  async function changeLabel(change) {
+  async function changeLabel(change, fields = {}) {
     const { action, name } = change;
+    const path = `${REPO}/labels/${encodeURIComponent(name)}`;
+    /** @type {Record<string, string>} */
+    const sent = {};
+    if (action === 'create') sent.name = name;
+    if (action === 'edit' && fields.name !== undefined) sent.new_name = fields.name;
+    if (fields.description !== undefined) sent.description = fields.description;
     const res =
       action === 'create'
-        ? await sendNow(change, `${REPO}/labels`, 'POST', { name })
-        : await sendNow(change, `${REPO}/labels/${encodeURIComponent(name)}`, 'DELETE');
+        ? await sendNow(change, `${REPO}/labels`, 'POST', sent)
+        : action === 'edit'
+          ? await sendNow(change, path, 'PATCH', sent)
+          : await sendNow(change, path, 'DELETE');
     if (typeof res === 'string') return res;
     responses.delete(LABELS_PATH);
+    const now = action === 'delete' ? null : (fields.name ?? name);
+    const description = fields.description ?? labelDescriptions[name] ?? '';
+    const descriptions = { ...labelDescriptions };
+    delete descriptions[name];
+    if (now && description) descriptions[now] = description;
+    labelDescriptions = descriptions;
     if (action === 'create') {
       labels = [...labels.filter((l) => l !== name), name];
     } else {
-      labels = labels.filter((l) => l !== name);
-      // GitHub takes it off every issue, closed ones too; show that at once.
-      // Their pages' ETags change with it, so the refresh fetches them anew.
-      base = base.map((i) => (i.labels.includes(name) ? { ...i, labels: i.labels.filter((l) => l !== name) } : i));
+      labels = now === null ? labels.filter((l) => l !== name) : labels.map((l) => (l === name ? now : l));
+      // GitHub renames it on, or takes it off, every issue, closed ones too;
+      // show that at once. Their pages' ETags change with it, so the refresh
+      // fetches them anew.
+      const relabel = (/** @type {string[]} */ ls) => ls.flatMap((l) => (l !== name ? [l] : now === null ? [] : [now]));
+      base = base.map((i) => (i.labels.includes(name) ? { ...i, labels: relabel(i.labels) } : i));
     }
     persistCache();
     changed();
@@ -411,7 +435,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       paths.push(MILESTONES_PATH);
       const ms = await conditionalGet(MILESTONES_PATH, toMilestones);
       paths.push(LABELS_PATH);
-      const ls = await conditionalGet(LABELS_PATH, (raw) => raw.map((/** @type {any} */ l) => l.name));
+      const ls = await conditionalGet(LABELS_PATH, toLabels);
       const fresh = anyChanged ? await withBlockers(fetched) : null;
       online = true;
       if (acceptedWrites !== writesBefore) {
@@ -421,7 +445,8 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
       } else {
         if (fresh) base = fresh;
         milestones = ms.body;
-        labels = ls.body;
+        labels = ls.body.map((/** @type {Label} */ l) => l.name);
+        labelDescriptions = Object.fromEntries(ls.body.filter((/** @type {Label} */ l) => l.description).map((/** @type {Label} */ l) => [l.name, l.description]));
       }
       refreshed = true;
       if (queue.length > 0) void flush();
@@ -465,7 +490,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
         win.removeEventListener('offline', offline);
       };
     },
-    getState: () => ({ issues: issues(), milestones, labels, online, pending: queue.length, failed }),
+    getState: () => ({ issues: issues(), milestones, labels, labelDescriptions, online, pending: queue.length, failed }),
     dismissFailed() {
       failed = [];
       changed();
@@ -532,8 +557,17 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     /**
      * A new label in Nexus, such as `soort: klusjes`. Online only, like Mijlpalen.
      * @param {string} name
+     * @param {string} [description] such as a Locatie's address
      */
-    createLabel: (name) => changeLabel({ type: 'label', action: 'create', name }),
+    createLabel: (name, description) =>
+      changeLabel({ type: 'label', action: 'create', name }, description ? { description } : {}),
+    /**
+     * Renames a label and/or changes its description. GitHub renames it on
+     * every issue that has it.
+     * @param {string} name exactly as the label is written
+     * @param {LabelFields} fields
+     */
+    editLabel: (name, fields) => changeLabel({ type: 'label', action: 'edit', name }, fields),
     /**
      * Deletes a label from Nexus, such as a Soort's or a Plek's. GitHub takes
      * it off every issue, closed ones too.
@@ -580,6 +614,11 @@ const toMilestones = (raw) => raw.map(toMilestone);
 
 /** @param {Milestone} a @param {Milestone} b */
 const byNumber = (a, b) => a.number - b.number;
+
+/** @typedef {{ name: string, description: string }} Label */
+
+/** @param {any[]} raw @returns {Label[]} */
+const toLabels = (raw) => raw.map((l) => ({ name: l.name, description: l.description ?? '' }));
 
 /** @param {any[]} raw */
 const toIssues = (raw) => raw.filter((r) => !r.pull_request).map(toIssue);

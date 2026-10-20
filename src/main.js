@@ -8,6 +8,8 @@ import { mountTaken } from './taken-view.js';
 import { mountMijlpalen } from './mijlpalen-view.js';
 import { mountSoorten } from './soorten-view.js';
 import { mountPlekken } from './plekken-view.js';
+import { mountLocaties } from './locaties-view.js';
+import { savedLocaties } from './locaties.js';
 import { mountBoodschappen } from './boodschappen-view.js';
 import { mountBoodschapAdd } from './boodschap-add-view.js';
 import { mountPakketten } from './pakketten-view.js';
@@ -52,6 +54,7 @@ const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close,
 const mijlpalen = mountMijlpalen({ getStore: () => store, onOpen: detail.open, onClose: closing.close });
 const soorten = mountSoorten({ getStore: () => store });
 const plekken = mountPlekken({ getStore: () => store });
+const locaties = mountLocaties({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onTick: closing.ticked, onZoom: boodschapAdd.setZoom });
 const pakketten = mountPakketten({ getStore: () => store, onBinnen: closing.binnen, onWeg: closing.weg });
@@ -83,7 +86,7 @@ function render() {
     const notice = $('login-notice');
     notice.textContent = EXPIRED_NOTICE;
     notice.hidden = !expired;
-    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'pakket', 'mijlpaal-form', 'soort-form']) {
+    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'pakket', 'mijlpaal-form', 'soort-form', 'locatie-form']) {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }
@@ -117,9 +120,10 @@ function renderLists() {
   mijlpalen.update(state?.issues ?? [], state?.milestones ?? [], state?.online ?? true);
   soorten.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
   plekken.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
+  locaties.update(state?.labels ?? [], state?.labelDescriptions ?? {}, state?.online ?? true);
   boodschappen.render();
   boodschapAdd.render();
-  pakketten.update(state?.issues ?? []);
+  pakketten.update(state?.issues ?? [], savedLocaties(state?.labels ?? [], state?.labelDescriptions ?? {}));
 }
 
 /** The small indicator of waiting changes, and a notice for refused ones. */

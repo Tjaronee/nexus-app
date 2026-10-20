@@ -47,6 +47,8 @@ const SHELL = [
   './src/boodschap-add-view.js',
   './src/pakketten.js',
   './src/pakketten-view.js',
+  './src/locaties.js',
+  './src/locaties-view.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
