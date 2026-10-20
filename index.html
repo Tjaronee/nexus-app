@@ -113,6 +113,9 @@
     <section id="panel-pakketten" class="panel" role="tabpanel" aria-labelledby="tab-pakketten" hidden>
       <ul id="pk-list" class="pakketten"></ul>
       <p id="pk-empty" class="placeholder" hidden>Er is niets onderweg.</p>
+      <button id="add-pakket" class="fab" type="button" aria-label="Nieuw Pakket">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" hidden>
       <p id="m-offline" class="notice small" hidden>Zonder verbinding kun je de indeling bekijken, maar niet aanpassen.</p>
@@ -380,6 +383,45 @@
           <button id="b-cancel" type="button" class="secondary">Annuleren</button>
         </div>
         <button id="b-remove" type="button" class="danger">Verwijderen, niet meer nodig</button>
+      </form>
+    </dialog>
+
+    <dialog id="pakket" class="sheet" aria-labelledby="pk-sheet-title">
+      <h2 id="pk-sheet-title">Nieuw Pakket</h2>
+      <div id="pk-links" class="pk-links" hidden>
+        <a id="pk-open-tracker" class="secondary" target="_blank" rel="noopener">Open tracker</a>
+        <a id="pk-kaart" class="secondary" target="_blank" rel="noopener">📍 Kaart</a>
+      </div>
+      <form id="pk-form" class="quick-add" novalidate>
+        <input id="pk-wat" class="field" type="text" autocomplete="off" enterkeyhint="next"
+               placeholder="Wat komt er?" aria-label="Wat">
+        <p id="pk-error" class="error" role="alert" hidden></p>
+        <div class="fields">
+          <label for="pk-tracker">Trackerlink</label>
+          <div class="pk-row">
+            <input id="pk-tracker" class="field" type="url" inputmode="url" autocomplete="off" placeholder="https://…">
+            <button id="pk-paste" type="button" class="secondary">📋 Plakken</button>
+          </div>
+          <label for="pk-verwacht">Verwacht</label>
+          <div class="pk-row">
+            <input id="pk-verwacht" class="field" type="date">
+            <button id="pk-clear-date" type="button" class="secondary" hidden>Wissen</button>
+          </div>
+          <fieldset>
+            <legend>Locatie</legend>
+            <div class="chips" role="group" aria-label="Locatie">
+              <button id="pk-thuis" type="button" class="chip">Thuis</button>
+              <button id="pk-anders-chip" type="button" class="chip">Anders…</button>
+            </div>
+          </fieldset>
+          <input id="pk-anders" class="field" type="text" autocomplete="off" enterkeyhint="done" hidden
+                 placeholder="Afhaalpunt, buren, werk…" aria-label="Andere Locatie">
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Opslaan</button>
+          <button id="pk-cancel" type="button" class="secondary">Annuleren</button>
+        </div>
+        <button id="pk-weg" type="button" class="danger" hidden>Weg</button>
       </form>
     </dialog>
 

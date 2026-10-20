@@ -53,7 +53,7 @@ const soorten = mountSoorten({ getStore: () => store });
 const plekken = mountPlekken({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
 const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onZoom: boodschapAdd.setZoom });
-const pakketten = mountPakketten({ onBinnen: closing.binnen });
+const pakketten = mountPakketten({ getStore: () => store, onBinnen: closing.binnen, onWeg: closing.weg });
 
 session.subscribe(render);
 session.subscribe(connect);
@@ -82,7 +82,7 @@ function render() {
     const notice = $('login-notice');
     notice.textContent = EXPIRED_NOTICE;
     notice.hidden = !expired;
-    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'mijlpaal-form', 'soort-form']) {
+    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'pakket', 'mijlpaal-form', 'soort-form']) {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }

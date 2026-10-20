@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pakketDetails, pakkettenList, dutchDate, mapsUrl, localDate } from '../src/pakketten.js';
-import { toIssue } from '../src/data/model.js';
+import {
+  pakketDetails, pakkettenList, dutchDate, mapsUrl, localDate,
+  pakketBody, normaliseLocatie, pakketProblem, pakketDraft, savePakket,
+} from '../src/pakketten.js';
+import { toIssue, matchesRef } from '../src/data/model.js';
+import { createStore } from '../src/data/store.js';
+import { createGitHub } from '../src/github.js';
+import { createFakeGitHub } from './fake-github.js';
+import { memoryStorage } from './memory-storage.js';
 
 /** @typedef {import('../src/data/model.js').Issue} Issue */
 
@@ -169,4 +176,154 @@ test('a Locatie links to Google Maps, except Thuis', () => {
   assert.equal(mapsUrl('Café & co'), 'https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20%26%20co');
   assert.equal(mapsUrl('Thuis'), null);
   assert.equal(mapsUrl(' thuis '), null);
+});
+
+// Writing a Pakket
+
+const TRACKER = 'https://jouw.postnl.nl/track-and-trace/3S123';
+
+test('a new Pakket gets its lines in order: Tracker, Verwacht, Locatie', () => {
+  assert.equal(
+    pakketBody('', { tracker: TRACKER, verwacht: '2026-10-23', locatie: 'Thuis' }),
+    `Tracker: ${TRACKER}\nVerwacht: 2026-10-23\nLocatie: Thuis`,
+  );
+  assert.equal(pakketBody('', { tracker: null, verwacht: null, locatie: 'Buren' }), 'Locatie: Buren');
+});
+
+test('editing keeps the other text where it was, and the lines where the first one was', () => {
+  const body = 'Besteld bij de webshop.\n\nlocatie: Buren\nTracker: https://dhl.nl/t/1\n\nOpmerking: bel aan\nNog een regel.';
+  assert.equal(
+    pakketBody(body, { tracker: TRACKER, verwacht: '2026-10-23', locatie: 'Thuis' }),
+    `Besteld bij de webshop.\n\nTracker: ${TRACKER}\nVerwacht: 2026-10-23\nLocatie: Thuis\n\nOpmerking: bel aan\nNog een regel.`,
+  );
+});
+
+test('text without any of the lines stays first, the lines go under it', () => {
+  assert.equal(pakketBody('Twee dozen.', { tracker: null, verwacht: null, locatie: 'Thuis' }), 'Twee dozen.\n\nLocatie: Thuis');
+});
+
+test('a cleared date or tracker removes its line', () => {
+  const body = `Tracker: ${TRACKER}\nVerwacht: 2026-10-23\nLocatie: Thuis\n\nVoor de verjaardag.`;
+  assert.equal(
+    pakketBody(body, { tracker: TRACKER, verwacht: null, locatie: 'Thuis' }),
+    `Tracker: ${TRACKER}\nLocatie: Thuis\n\nVoor de verjaardag.`,
+  );
+  assert.equal(
+    pakketBody(body, { tracker: null, verwacht: '2026-10-23', locatie: 'Thuis' }),
+    'Verwacht: 2026-10-23\nLocatie: Thuis\n\nVoor de verjaardag.',
+  );
+});
+
+test('a second line with a known key, written by hand, goes too', () => {
+  assert.equal(pakketBody('Locatie: Buren\nLOCATIE: werk', { tracker: null, verwacht: null, locatie: 'Thuis' }), 'Locatie: Thuis');
+});
+
+test('what is written reads back the same', () => {
+  const details = { tracker: TRACKER, verwacht: '2026-10-23', locatie: 'PostNL-punt Jumbo Kerkstraat' };
+  const body = pakketBody('Besteld op 18 okt.\nOpmerking: bel aan', details);
+  assert.deepEqual(pakketDetails(body), details);
+  assert.deepEqual(pakketDetails(pakketBody(body, { ...details, tracker: null })), { ...details, tracker: null });
+});
+
+test('a Locatie of "thuis" in any casing is Thuis; others are tidied up', () => {
+  for (const typed of ['thuis', ' THUIS ', 'Thuis', 'tHuIs']) assert.equal(normaliseLocatie(typed), 'Thuis', typed);
+  assert.equal(normaliseLocatie('  PostNL-punt   Jumbo '), 'PostNL-punt Jumbo');
+  assert.equal(normaliseLocatie('   '), '');
+});
+
+/** @param {Partial<import('../src/pakketten.js').Draft>} [over] */
+const draft = (over = {}) => ({ wat: 'Stofzuiger', tracker: '', verwacht: '', locatie: 'Thuis', ...over });
+
+test('a Pakket needs a Wat and a Locatie, and a tracker must be a web link', () => {
+  assert.equal(pakketProblem(draft()), null);
+  assert.equal(pakketProblem(draft({ wat: '  ' })), 'wat');
+  assert.equal(pakketProblem(draft({ locatie: '  ' })), 'locatie');
+  assert.equal(pakketProblem(draft({ tracker: '3S123' })), 'tracker');
+  assert.equal(pakketProblem(draft({ tracker: ` ${TRACKER} ` })), null);
+});
+
+test('the sheet is filled in from a Pakket', () => {
+  const pk = pakket('Stofzuiger', { tracker: TRACKER, verwacht: '2026-10-23', locatie: 'Buren' });
+  assert.deepEqual(pakketDraft(pk), { wat: 'Stofzuiger', tracker: TRACKER, verwacht: '2026-10-23', locatie: 'Buren' });
+  assert.deepEqual(pakketDraft(pakket('Lamp')), { wat: 'Lamp', tracker: '', verwacht: '', locatie: '' });
+});
+
+// Saving through the store
+
+function setup() {
+  const server = createFakeGitHub();
+  const github = createGitHub({ token: 'tok', fetch: server.fetch, onUnauthorized: () => {} });
+  let n = 0;
+  const store = createStore({ github, storage: memoryStorage(), newId: () => `cid-${++n}` });
+  return { server, store };
+}
+
+/** @param {ReturnType<typeof createStore>} store @param {import('../src/data/model.js').IssueRef} ref */
+const find = (store, ref) => store.getState().issues.find((i) => matchesRef(i, ref));
+
+test('a new Pakket is a pakket issue, listed at once, also offline', async () => {
+  const { server, store } = setup();
+  await store.refresh();
+  server.state.offline = true;
+
+  const saved = savePakket(store, null, draft({ wat: ' Stofzuiger ', tracker: TRACKER, verwacht: '2026-10-23', locatie: 'thuis' }));
+
+  assert.ok('ref' in saved);
+  assert.deepEqual(titles(store.getState().issues), ['Stofzuiger'], 'listed before GitHub has it');
+  await store.flush();
+  assert.equal(store.getState().pending, 1);
+  server.state.offline = false;
+  await store.flush();
+  await store.refresh();
+
+  assert.equal(server.issues.length, 1);
+  assert.deepEqual(server.issues[0].labels, [{ name: 'pakket' }]);
+  const issue = find(store, saved.ref);
+  assert.equal(issue?.title, 'Stofzuiger');
+  assert.equal(issue?.body, `Tracker: ${TRACKER}\nVerwacht: 2026-10-23\nLocatie: Thuis`);
+  assert.equal(typeof issue?.number, 'number');
+});
+
+test('a Pakket without Wat or Locatie is not saved', async () => {
+  const { store } = setup();
+  await store.refresh();
+
+  assert.deepEqual(savePakket(store, null, draft({ wat: ' ' })), { problem: 'wat' });
+  assert.deepEqual(savePakket(store, null, draft({ locatie: '' })), { problem: 'locatie' });
+  assert.equal(store.getState().pending, 0);
+});
+
+test('editing sends only what changed, and other text in the body survives', async () => {
+  const { server, store } = setup();
+  const raw = server.addIssue({
+    title: 'Stofzuiger',
+    body: `Besteld bij de webshop.\n\nTracker: ${TRACKER}\nVerwacht: 2026-10-23\nLocatie: Thuis`,
+    labels: [{ name: 'pakket' }],
+  });
+  await store.refresh();
+  const ref = raw.number;
+  const before = server.state.log.length;
+
+  savePakket(store, ref, draft({ wat: 'Stofzuiger', tracker: TRACKER, verwacht: '', locatie: 'PostNL-punt Jumbo' }));
+  await store.flush();
+
+  const patches = server.state.log.slice(before).filter((r) => r.method === 'PATCH');
+  assert.equal(patches.length, 1);
+  assert.equal(server.byNumber(ref).title, 'Stofzuiger');
+  assert.equal(find(store, ref)?.body, `Besteld bij de webshop.\n\nTracker: ${TRACKER}\nLocatie: PostNL-punt Jumbo`);
+});
+
+test('nothing changed, nothing sent; a renamed Pakket keeps a body the app cannot read', async () => {
+  const { server, store } = setup();
+  const raw = server.addIssue({ title: 'Lamp', body: 'Verwacht: morgen\nLocatie: Buren', labels: [{ name: 'pakket' }] });
+  await store.refresh();
+  const ref = raw.number;
+
+  savePakket(store, ref, pakketDraft(/** @type {Issue} */ (find(store, ref))));
+  assert.equal(store.getState().pending, 0);
+
+  savePakket(store, ref, { ...pakketDraft(/** @type {Issue} */ (find(store, ref))), wat: 'Bureaulamp' });
+  await store.flush();
+  assert.equal(server.byNumber(ref).title, 'Bureaulamp');
+  assert.equal(server.byNumber(ref).body, 'Verwacht: morgen\nLocatie: Buren');
 });
