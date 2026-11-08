@@ -1,4 +1,4 @@
-import { blocking, matchesRef, prioOf, urgentieOf } from './data/model.js';
+import { blocking, matchesRef, prioOf } from './data/model.js';
 import { choices } from './quick-add.js';
 import { soortOf, tapSoort, soortChange } from './soort.js';
 import { parkChange } from './geparkeerd.js';
@@ -20,7 +20,6 @@ export function detailOf(issues, ref) {
   return {
     issue,
     prio: prioOf(issue),
-    urgentie: urgentieOf(issue),
     soort: soortOf(issue),
     blockedBy: issue.blockedBy.map((blockerRef) => {
       const blocker = issues.find((i) => matchesRef(i, blockerRef));

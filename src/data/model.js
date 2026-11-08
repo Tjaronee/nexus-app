@@ -30,15 +30,12 @@
 /** @typedef {'completed' | 'not_planned' | 'reopened'} StateReason */
 /** @typedef {'taak' | 'boodschap' | 'pakket'} Kind */
 /** @typedef {'laag' | 'middel' | 'hoog'} Prio */
-/** @typedef {'nu' | 'binnenkort' | 'ooit'} Urgentie */
 
 export const BOODSCHAPPEN_LABEL = 'boodschappen';
 export const PAKKET_LABEL = 'pakket';
 
 /** @type {Record<Prio, string>} */
 export const PRIO_LABELS = { laag: 'prio: low', middel: 'prio: medium', hoog: 'prio: high' };
-/** @type {Record<Urgentie, string>} */
-export const URGENTIE_LABELS = { nu: 'urgency: now', binnenkort: 'urgency: soon', ooit: 'urgency: whenever' };
 
 /** GitHub serves anyone's avatar by login, for people we have no avatar URL for. @param {string} login */
 export const avatarOf = (login) => `https://github.com/${encodeURIComponent(login)}.png`;
@@ -127,6 +124,3 @@ function valueFromLabels(issue, labels, fallback) {
 
 /** Unlabelled issues count as middel, without writing the label. @param {Issue} issue */
 export const prioOf = (issue) => valueFromLabels(issue, PRIO_LABELS, /** @type {Prio} */ ('middel'));
-
-/** Unlabelled issues count as binnenkort, without writing the label. @param {Issue} issue */
-export const urgentieOf = (issue) => valueFromLabels(issue, URGENTIE_LABELS, /** @type {Urgentie} */ ('binnenkort'));

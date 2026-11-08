@@ -1,13 +1,12 @@
 import { NEXUS_OWNER, NEXUS_REPO } from '../config.js';
 import { UnauthorizedError } from '../github.js';
-import { toIssue, matchesRef, splitCid, avatarOf, PRIO_LABELS, URGENTIE_LABELS } from './model.js';
+import { toIssue, matchesRef, splitCid, avatarOf, PRIO_LABELS } from './model.js';
 import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
 
 /** @typedef {import('./model.js').Issue} Issue */
 /** @typedef {import('./model.js').IssueRef} IssueRef */
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Prio} Prio */
-/** @typedef {import('./model.js').Urgentie} Urgentie */
 /** @typedef {{ type: 'label', action: 'create' | 'edit' | 'delete', name: string }} LabelChange */
 /** A label's new name and description; what is left out stays. @typedef {{ name?: string, description?: string }} LabelFields */
 /**
@@ -491,8 +490,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     editLabels: (ref, { add = [], remove = [] }) => enqueue({ type: 'labels', ref, add, remove }),
     /** @param {IssueRef} ref @param {Prio} prio */
     setPrio: (ref, prio) => swapLabel(ref, PRIO_LABELS, prio),
-    /** @param {IssueRef} ref @param {Urgentie} urgentie */
-    setUrgentie: (ref, urgentie) => swapLabel(ref, URGENTIE_LABELS, urgentie),
     /** Toegewezen. @param {IssueRef} ref @param {{ add?: string[], remove?: string[] }} change */
     editAssignees: (ref, { add = [], remove = [] }) =>
       enqueue({ type: 'assignees', ref, add: add.map(person), remove }),

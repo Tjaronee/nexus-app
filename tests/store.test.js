@@ -227,22 +227,21 @@ test('closing and reopening an issue', async () => {
   assert.equal(server.byNumber(1).state, 'open');
 });
 
-test('setting Prio and Urgentie swaps the English label, keeping other labels', async () => {
+test('setting Prio swaps the English label, keeping other labels', async () => {
   const server = createFakeGitHub();
   server.addIssue({ labels: ['prio: low', 'waar: praxis'] });
   const { store } = setup({ server });
   await store.refresh();
 
   store.setPrio(1, 'hoog');
-  store.setUrgentie(1, 'nu');
-  assert.deepEqual(issue(store, 1)?.labels.sort(), ['prio: high', 'urgency: now', 'waar: praxis']);
+  assert.deepEqual(issue(store, 1)?.labels.sort(), ['prio: high', 'waar: praxis']);
   // Meanwhile the partner adds a Plek on the other phone.
   server.byNumber(1).labels.push({ name: 'waar: centrum' });
   await store.flush();
 
   assert.deepEqual(
     server.byNumber(1).labels.map((/** @type {any} */ l) => l.name).sort(),
-    ['prio: high', 'urgency: now', 'waar: centrum', 'waar: praxis'],
+    ['prio: high', 'waar: centrum', 'waar: praxis'],
   );
 });
 

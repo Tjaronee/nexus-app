@@ -36,7 +36,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   const copy = /** @type {HTMLButtonElement} */ ($('d-copy'));
   const reactieText = /** @type {HTMLTextAreaElement} */ ($('d-reactie-text'));
   const reactiePost = /** @type {HTMLButtonElement} */ ($('d-reactie-post'));
-  const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-d-prio], [data-d-urgentie]'));
+  const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-d-prio]'));
 
   /** @type {IssueRef | null} */
   let ref = null;
@@ -148,10 +148,9 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     chip.addEventListener('click', () => {
       const detail = current();
       if (!detail) return;
-      const { dPrio, dUrgentie } = /** @type {any} */ (chip.dataset);
+      const prio = /** @type {any} */ (chip.dataset.dPrio);
       // Only a real change writes a label, so an unlabelled issue stays unlabelled.
-      if (dPrio && dPrio !== detail.prio) edit((store, r) => store.setPrio(r, dPrio));
-      if (dUrgentie && dUrgentie !== detail.urgentie) edit((store, r) => store.setUrgentie(r, dUrgentie));
+      if (prio !== detail.prio) edit((store, r) => store.setPrio(r, prio));
     });
   }
 
@@ -254,10 +253,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       fitHeight(title);
     }
     showHeading();
-    for (const chip of chips) {
-      const { dPrio, dUrgentie } = chip.dataset;
-      chip.setAttribute('aria-pressed', String(dPrio ? dPrio === detail.prio : dUrgentie === detail.urgentie));
-    }
+    for (const chip of chips) chip.setAttribute('aria-pressed', String(chip.dataset.dPrio === detail.prio));
     renderPickers(issue);
     const today = new Date();
     const until = parkedUntil(issue, today);
