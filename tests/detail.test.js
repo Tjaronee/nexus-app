@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detailOf, assigneeChange, editChoices, reactieBody, postReactie, tapSoortChip } from '../src/detail.js';
+import { detailOf, assigneeChange, editChoices, reactieBody, postReactie, tapSoortChip, parkTaak } from '../src/detail.js';
 import { createStore } from '../src/data/store.js';
 import { createGitHub } from '../src/github.js';
 import { createFakeGitHub } from './fake-github.js';
@@ -204,6 +204,31 @@ test('a hand-written soort: label counts as its Soort: tapping it clears it', as
 
   tapSoortChip(store, taak.number, 'klusjes');
 
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), []);
+});
+
+test('choosing a month parks the Taak, replacing the month it had', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Zonnepanelen', labels: ['prio: high', 'geparkeerd: 2026-03'] });
+  await store.refresh();
+
+  parkTaak(store, taak.number, '2027-02');
+
+  assert.ok(detailOf(store.getState().issues, taak.number)?.issue.labels.includes('geparkeerd: 2027-02'), 'shows at once');
+  await store.flush();
+  assert.deepEqual(serverLabels(taak), ['geparkeerd: 2027-02', 'prio: high']);
+});
+
+test('Niet geparkeerd removes the label; choosing what it has writes nothing', async () => {
+  const { server, store } = storeSetup();
+  const taak = server.addIssue({ title: 'Zonnepanelen', labels: ['geparkeerd: 2027-02'] });
+  await store.refresh();
+
+  parkTaak(store, taak.number, '2027-02');
+  assert.equal(store.getState().pending, 0);
+
+  parkTaak(store, taak.number, null);
   await store.flush();
   assert.deepEqual(serverLabels(taak), []);
 });

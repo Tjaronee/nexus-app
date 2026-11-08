@@ -1,5 +1,6 @@
 import { takenList, loadFilters, saveFilters, isFiltered, withKnownSoorten } from './taken.js';
 import { knownSoorten, groupBySoort, GEEN_SOORT } from './soort.js';
+import { monthName, standsOut, markSeen, loadSeen, saveSeen } from './geparkeerd.js';
 import { $, el, replaceKeepingFocus } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
@@ -7,6 +8,11 @@ import { $, el, replaceKeepingFocus } from './dom.js';
 /** @typedef {import('./taken.js').Filters} Filters */
 /** @typedef {import('./taken.js').Row} Row */
 /** @typedef {import('./soort.js').SoortKey} SoortKey */
+/**
+ * How a row is drawn beyond its Row: `today` names the months, `relevant` is
+ * set for a Taak that stands out as just become relevant.
+ * @typedef {{ today: Date, relevant: boolean }} Look
+ */
 
 /**
  * The Taken list in #panel-taken. The controls are static in index.html, so
@@ -33,6 +39,26 @@ export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
 
   const panel = $('panel-taken');
   const searchInput = /** @type {HTMLInputElement} */ ($('taken-search'));
+  const blockedSection = /** @type {HTMLDetailsElement} */ ($('taken-blocked'));
+  const parkedSection = /** @type {HTMLDetailsElement} */ ($('taken-parked'));
+  /** Whether each folded section was open before a search opened them, to go back to after. @type {boolean[] | null} */
+  let openBeforeSearch = null;
+
+  // A Taak that just became relevant stops standing out once it has been on
+  // screen on 3 days: counted when half its row is in view, with the app in
+  // front and not in a closed section.
+  /** @type {WeakMap<Element, Issue>} */
+  const relevantRows = new WeakMap();
+  const seenObserver = new IntersectionObserver(
+    (entries) => {
+      if (document.visibilityState !== 'visible') return;
+      const seen = entries
+        .filter((e) => e.isIntersecting && !e.target.closest('details:not([open])'))
+        .flatMap((e) => relevantRows.get(e.target) ?? []);
+      if (seen.length > 0) saveSeen(storage, markSeen(loadSeen(storage), seen, new Date()));
+    },
+    { threshold: 0.5 },
+  );
   const buttons = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-wie], [data-prio], [data-urgentie]'));
 
   searchInput.addEventListener('input', () => {
@@ -72,14 +98,50 @@ export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
     renderSoortChips(soorten, active);
     onFilter(active);
 
-    const { free, blocked } = takenList(issues, { filters: active, search, me });
-    $('taken-groups').replaceChildren(...groupBySoort(free).map((group) => groupElement(group.soort, group.rows, onOpen, onClose)));
-    $('taken-blocked-list').replaceChildren(...blocked.map((row) => rowElement(row, onOpen, onClose)));
-    $('taken-blocked').hidden = blocked.length === 0;
+    const today = new Date();
+    const seen = loadSeen(storage);
+    seenObserver.disconnect();
+    /** @param {Row} row */
+    const draw = (row) => {
+      const relevant = standsOut(row.issue, today, seen);
+      const li = rowElement(row, onOpen, onClose, { today, relevant });
+      if (relevant) {
+        relevantRows.set(li, row.issue);
+        seenObserver.observe(li);
+      }
+      return li;
+    };
+    const { free, blocked, parked } = takenList(issues, { filters: active, search, me, today });
+    $('taken-groups').replaceChildren(...groupBySoort(free).map((group) => groupElement(group.soort, group.rows.map(draw))));
+    fillFolded(blockedSection, 'taken-blocked', blocked.map(draw));
+    fillFolded(parkedSection, 'taken-parked', parked.map(draw));
+    openWhileSearching();
 
     const empty = $('taken-empty');
     empty.textContent = search.trim() !== '' || isFiltered(active) ? 'Geen Taken die hierbij passen.' : 'Geen open Taken.';
-    empty.hidden = free.length + blocked.length > 0;
+    empty.hidden = free.length + blocked.length + parked.length > 0;
+  }
+
+  /**
+   * Fills a folded section and its count; it is hidden while empty.
+   * @param {HTMLDetailsElement} section @param {string} id @param {HTMLElement[]} rows
+   */
+  function fillFolded(section, id, rows) {
+    $(`${id}-list`).replaceChildren(...rows);
+    $(`${id}-count`).textContent = String(rows.length);
+    section.hidden = rows.length === 0;
+  }
+
+  /** While searching, both folded sections open, so matches inside them show; after, they are as before. */
+  function openWhileSearching() {
+    const sections = [blockedSection, parkedSection];
+    if (search.trim() !== '') {
+      openBeforeSearch ??= sections.map((s) => s.open);
+      for (const section of sections) section.open = true;
+    } else if (openBeforeSearch) {
+      sections.forEach((section, i) => (section.open = /** @type {boolean[]} */ (openBeforeSearch)[i]));
+      openBeforeSearch = null;
+    }
   }
 
   /**
@@ -136,27 +198,27 @@ function toggle(list, value) {
 /**
  * One Soort's Taken, under its name.
  * @param {SoortKey} soort
- * @param {Row[]} rows
- * @param {(ref: IssueRef) => void} onOpen
- * @param {(issue: Issue) => void} onClose
+ * @param {HTMLElement[]} rows the Taken as list rows
  */
-export function groupElement(soort, rows, onOpen, onClose) {
+export function groupElement(soort, rows) {
   const section = el('section', 'group soort');
   section.append(el('h2', undefined, soort ?? GEEN_SOORT));
   const list = el('ul', 'taken');
-  list.append(...rows.map((row) => rowElement(row, onOpen, onClose)));
+  list.append(...rows);
   section.append(list);
   return section;
 }
 
 /**
- * One Taak as a list row.
+ * One Taak as a list row. One that just became relevant stands out by colour
+ * only; screen readers hear it with its title.
  * @param {Row} row
  * @param {(ref: IssueRef) => void} onOpen
  * @param {(issue: Issue) => void} onClose
+ * @param {Look} look
  */
-export function rowElement(row, onOpen, onClose) {
-  const li = el('li', 'taak');
+export function rowElement(row, onOpen, onClose, { today, relevant }) {
+  const li = el('li', relevant ? 'taak taak--relevant' : 'taak');
 
   // The whole row opens the Taak; the title is the button for keyboards and screen readers.
   li.addEventListener('click', (event) => {
@@ -173,6 +235,7 @@ export function rowElement(row, onOpen, onClose) {
   head.append(check);
   const titleButton = /** @type {HTMLButtonElement} */ (el('button', 'taak__title', row.issue.title));
   titleButton.type = 'button';
+  if (relevant) titleButton.setAttribute('aria-label', `${row.issue.title}, net relevant geworden`);
   head.append(titleButton);
   if (row.issue.assignees.length > 0) {
     const avatars = el('span', 'taak__avatars');
@@ -193,6 +256,7 @@ export function rowElement(row, onOpen, onClose) {
     badge(`prio-${row.prio}`, row.prio, `Prio: ${row.prio}`),
     badge(`urgentie-${row.urgentie}`, row.urgentie, `Urgentie: ${row.urgentie}`),
   );
+  if (row.parkedUntil) meta.append(el('span', 'taak__parked', `tot ${monthName(row.parkedUntil, today)}`));
   li.append(meta);
 
   for (const blocker of row.waitingFor) {
@@ -201,6 +265,7 @@ export function rowElement(row, onOpen, onClose) {
     link.type = 'button';
     link.addEventListener('click', () => onOpen(blocker.ref));
     wait.append(link);
+    if (blocker.parkedUntil) wait.append(` (geparkeerd tot ${monthName(blocker.parkedUntil, today)})`);
     li.append(wait);
   }
   return li;
