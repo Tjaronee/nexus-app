@@ -92,8 +92,8 @@ test('zooming in on a Plek shows only its group', () => {
 
 test('a bought or removed Boodschap is gone from the list', () => {
   const issues = [
-    boodschap('melk', [], { state: 'closed', stateReason: 'completed', closedAt: '2026-09-29T12:05:00Z' }),
-    boodschap('weg', [], { state: 'closed', stateReason: 'not_planned', closedAt: '2026-09-29T12:07:00Z' }),
+    boodschap('melk', [], { state: 'closed', stateReason: 'completed' }),
+    boodschap('weg', [], { state: 'closed', stateReason: 'not_planned' }),
     boodschap('kaas'),
   ];
   const view = list(issues);
@@ -102,7 +102,7 @@ test('a bought or removed Boodschap is gone from the list', () => {
 });
 
 test('the zoomed-in Plek keeps its chip and group when its last Boodschap is bought', () => {
-  const issues = [boodschap('schroeven', ['praxis'], { state: 'closed', stateReason: 'completed', closedAt: '2026-09-29T12:00:00Z' })];
+  const issues = [boodschap('schroeven', ['praxis'], { state: 'closed', stateReason: 'completed' })];
   const view = list(issues, { zoom: { plek: 'praxis' } });
   assert.deepEqual(
     view.chips.map((c) => [c.zoom, c.count, c.selected]),
