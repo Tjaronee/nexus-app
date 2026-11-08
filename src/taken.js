@@ -1,17 +1,16 @@
 import { normalise } from './text.js';
-import { kindOf, matchesRef, prioOf, urgentieOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
+import { kindOf, matchesRef, prioOf, PRIO_LABELS } from './data/model.js';
 import { normaliseSoort, soortOf } from './soort.js';
 import { parkedUntil } from './geparkeerd.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./data/model.js').Prio} Prio */
-/** @typedef {import('./data/model.js').Urgentie} Urgentie */
 /** @typedef {import('./soort.js').SoortKey} SoortKey */
 /** @typedef {import('./geparkeerd.js').Month} Month */
 /** @typedef {'iedereen' | 'mijn' | 'partner'} Wie */
-/** An empty Prio, Urgentie or Soort list means no filter on it. */
-/** @typedef {{ prio: Prio[], urgentie: Urgentie[], wie: Wie, soort: SoortKey[] }} Filters */
+/** An empty Prio or Soort list means no filter on it. */
+/** @typedef {{ prio: Prio[], wie: Wie, soort: SoortKey[] }} Filters */
 /**
  * One Taak as the list shows it. `parkedUntil` is the month it is Geparkeerd
  * until, or null when it isn't; `waitingFor` holds the open Taken it is
@@ -19,7 +18,6 @@ import { parkedUntil } from './geparkeerd.js';
  * @typedef {{
  *   issue: Issue,
  *   prio: Prio,
- *   urgentie: Urgentie,
  *   soort: SoortKey,
  *   parkedUntil: Month | null,
  *   waitingFor: { ref: IssueRef, title: string, parkedUntil: Month | null }[],
@@ -28,22 +26,21 @@ import { parkedUntil } from './geparkeerd.js';
 
 /** In display and sort order. */
 const PRIOS = /** @type {Prio[]} */ (Object.keys(PRIO_LABELS)).reverse();
-const URGENTIES = /** @type {Urgentie[]} */ (Object.keys(URGENTIE_LABELS));
 /** @type {Wie[]} */
 const WIE = ['iedereen', 'mijn', 'partner'];
 
 /** @type {Filters} */
-export const ALL = { prio: [], urgentie: [], wie: 'iedereen', soort: [] };
+export const ALL = { prio: [], wie: 'iedereen', soort: [] };
 
 const FILTERS_KEY = 'nexus.takenFilters';
 
 /** Whether these filters hide anything. @param {Filters} filters */
 export function isFiltered(filters) {
-  return filters.prio.length > 0 || filters.urgentie.length > 0 || filters.wie !== ALL.wie || filters.soort.length > 0;
+  return filters.prio.length > 0 || filters.wie !== ALL.wie || filters.soort.length > 0;
 }
 
 /**
- * The open Taken, filtered and sorted by Urgentie then Prio, with the
+ * The open Taken, filtered and sorted by Prio then age, with the
  * Geblokkeerd and the Geparkeerd ones apart so they can go at the bottom.
  * Geparkeerd is sorted by month first, and holds every Geparkeerd Taak, also
  * one that is Geblokkeerd.
@@ -59,7 +56,7 @@ export function takenList(issues, { filters, search, me, today }) {
     .map((issue) => toRow(issue, open, today))
     .filter((row) => matchesFilters(row, filters, me.toLowerCase()))
     .filter((row) => matchesSearch(row.issue, terms))
-    .sort(byUrgentieThenPrio);
+    .sort(byPrioThenAge);
   const current = rows.filter((r) => r.parkedUntil === null);
   return {
     free: current.filter((r) => r.waitingFor.length === 0),
@@ -74,7 +71,6 @@ function toRow(issue, open, today) {
   return {
     issue,
     prio: prioOf(issue),
-    urgentie: urgentieOf(issue),
     soort: soortOf(issue),
     parkedUntil: parkedUntil(issue, today),
     // A blocker that is closed, or not in Nexus, no longer holds the Taak up.
@@ -93,7 +89,6 @@ function toRow(issue, open, today) {
  */
 function matchesFilters(row, filters, me) {
   if (filters.prio.length > 0 && !filters.prio.includes(row.prio)) return false;
-  if (filters.urgentie.length > 0 && !filters.urgentie.includes(row.urgentie)) return false;
   if (filters.soort.length > 0 && !filters.soort.includes(row.soort)) return false;
   const logins = row.issue.assignees.map((a) => a.login.toLowerCase());
   if (logins.length === 0 || filters.wie === 'iedereen') return true;
@@ -107,18 +102,15 @@ function matchesSearch(issue, terms) {
   return terms.every((t) => text.includes(t));
 }
 
-/** @param {Row} a @param {Row} b */
-function byUrgentieThenPrio(a, b) {
-  return (
-    URGENTIES.indexOf(a.urgentie) - URGENTIES.indexOf(b.urgentie) ||
-    PRIOS.indexOf(a.prio) - PRIOS.indexOf(b.prio) ||
-    a.issue.createdAt.localeCompare(b.issue.createdAt)
-  );
+/** Hoog first, then the oldest. @param {Row} a @param {Row} b */
+function byPrioThenAge(a, b) {
+  return PRIOS.indexOf(a.prio) - PRIOS.indexOf(b.prio) || a.issue.createdAt.localeCompare(b.issue.createdAt);
 }
 
 /**
  * The filters last used on this device. Anything unreadable, or values an
- * older version stored, falls back to no filter.
+ * older version stored, falls back to no filter; filters that no longer exist
+ * (Urgentie) are dropped.
  * @param {Storage} storage
  * @returns {Filters}
  */
@@ -132,7 +124,6 @@ export function loadFilters(storage) {
   if (!saved || typeof saved !== 'object') return ALL;
   return {
     prio: onlyKnown(saved.prio, PRIOS),
-    urgentie: onlyKnown(saved.urgentie, URGENTIES),
     wie: WIE.includes(saved.wie) ? saved.wie : ALL.wie,
     // Which Soorten exist is only known once the labels are in; see withKnownSoorten.
     soort: soortKeys(saved.soort),

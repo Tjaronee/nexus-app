@@ -26,10 +26,9 @@ test('finds the Taak by number or by the client ID it was created with', () => {
   assert.equal(detailOf([pending], 99), null);
 });
 
-test('reads Prio and Urgentie, treating an unlabelled Taak as middel / binnenkort', () => {
-  const d = detailOf([issue({ number: 1, labels: ['prio: high'] })], 1);
-  assert.equal(d?.prio, 'hoog');
-  assert.equal(d?.urgentie, 'binnenkort');
+test('reads Prio, treating an unlabelled Taak as middel', () => {
+  assert.equal(detailOf([issue({ number: 1, labels: ['prio: high'] })], 1)?.prio, 'hoog');
+  assert.equal(detailOf([issue({ number: 1 })], 1)?.prio, 'middel');
 });
 
 test('lists what blocks the Taak, open or closed, and what it blocks', () => {

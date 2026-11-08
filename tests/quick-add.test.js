@@ -18,7 +18,7 @@ function setup() {
 /** @param {ReturnType<typeof createStore>} store @param {string} title */
 const byTitle = (store, title) => store.getState().issues.find((i) => i.title === title);
 
-test('a Taak with only a title gets middel / binnenkort and nothing else', async () => {
+test('a Taak with only a title gets middel and nothing else', async () => {
   const { store } = setup();
   await store.refresh();
 
@@ -30,7 +30,7 @@ test('a Taak with only a title gets middel / binnenkort and nothing else', async
   await store.refresh();
   const saved = byTitle(store, 'Dozen halen');
   assert.equal(typeof saved?.number, 'number');
-  assert.deepEqual(saved?.labels.sort(), ['prio: medium', 'urgency: soon']);
+  assert.deepEqual(saved?.labels, ['prio: medium']);
   assert.deepEqual(saved?.assignees, []);
   assert.equal(saved?.body, '');
 });
@@ -45,7 +45,7 @@ test('a blank title saves nothing', async () => {
   assert.equal(store.getState().pending, 0);
 });
 
-test('saves the chosen Prio, Urgentie and everything under "meer"', async () => {
+test('saves the chosen Prio and everything under "meer"', async () => {
   const { server, store } = setup();
   const blocker = server.addIssue({ title: 'Sleutel ophalen' });
   await store.refresh();
@@ -54,7 +54,6 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
     title: 'Kasten opbouwen',
     body: 'Met de schroevendraaier van de buren',
     prio: 'hoog',
-    urgentie: 'nu',
     soort: null,
     geparkeerd: null,
     toegewezen: ['tjaronee', 'partner'],
@@ -66,7 +65,7 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
 
   const saved = byTitle(store, 'Kasten opbouwen');
   assert.equal(saved?.body, 'Met de schroevendraaier van de buren');
-  assert.deepEqual(saved?.labels.sort(), ['prio: high', 'urgency: now']);
+  assert.deepEqual(saved?.labels, ['prio: high']);
   assert.deepEqual(saved?.assignees.map((a) => a.login), ['tjaronee', 'partner']);
   assert.deepEqual(saved?.blockedBy, [blocker.number]);
 });
@@ -172,7 +171,7 @@ test('saves the chosen Soort as its soort: label, also when offline', async () =
   server.state.offline = false;
   await store.flush();
   await store.refresh();
-  assert.deepEqual(byTitle(store, 'Lamp ophangen')?.labels.sort(), ['prio: medium', 'soort: klusjes', 'urgency: soon']);
+  assert.deepEqual(byTitle(store, 'Lamp ophangen')?.labels.sort(), ['prio: medium', 'soort: klusjes']);
 });
 
 test('a Taak can be Geparkeerd as it is created', async () => {
@@ -183,7 +182,7 @@ test('a Taak can be Geparkeerd as it is created', async () => {
 
   await store.flush();
   await store.refresh();
-  assert.deepEqual(byTitle(store, 'Zonnepanelen')?.labels.sort(), ['geparkeerd: 2027-02', 'prio: medium', 'urgency: soon']);
+  assert.deepEqual(byTitle(store, 'Zonnepanelen')?.labels.sort(), ['geparkeerd: 2027-02', 'prio: medium']);
 });
 
 test('offers every known Soort as a chip, alphabetically', () => {

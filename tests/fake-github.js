@@ -18,6 +18,7 @@ export function createFakeGitHub({ pageSize = 100 } = {}) {
   // GitHub still has milestones; the app no longer reads or sets them (Nexus ADR 0007).
   /** @type {{ number: number, title: string, state: string, description: string, due_on: string | null }[]} */
   const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: 'open', description: '', due_on: null }];
+  // GitHub still has the urgency labels until they are deleted; the app ignores them (Nexus ADR 0007).
   const labels = [
     'prio: low', 'prio: medium', 'prio: high',
     'urgency: now', 'urgency: soon', 'urgency: whenever',

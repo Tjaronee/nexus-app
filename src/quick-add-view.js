@@ -29,9 +29,9 @@ export function mountQuickAdd({ getStore, getMe }) {
   const error = $('qa-error');
   const again = $('qa-again');
   const park = /** @type {HTMLButtonElement} */ ($('qa-park'));
-  const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-qa-prio], [data-qa-urgentie]'));
+  const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-qa-prio]'));
 
-  let { prio, urgentie, soort } = DEFAULTS;
+  let { prio, soort } = DEFAULTS;
   /** @type {Month | null} */
   let geparkeerd = DEFAULTS.geparkeerd;
   /** The Soort a new Taak starts with, from the Taken filter. @type {string | null} */
@@ -44,7 +44,7 @@ export function mountQuickAdd({ getStore, getMe }) {
   $('add-taak').addEventListener('click', () => {
     const store = getStore();
     if (!store) return;
-    ({ prio, urgentie } = DEFAULTS);
+    ({ prio } = DEFAULTS);
     soort = filterSoort;
     more.open = false;
     clear();
@@ -55,9 +55,7 @@ export function mountQuickAdd({ getStore, getMe }) {
 
   for (const chip of chips) {
     chip.addEventListener('click', () => {
-      const { qaPrio, qaUrgentie } = /** @type {any} */ (chip.dataset);
-      if (qaPrio) prio = qaPrio;
-      if (qaUrgentie) urgentie = qaUrgentie;
+      prio = /** @type {any} */ (chip.dataset.qaPrio);
       render();
     });
   }
@@ -98,7 +96,6 @@ export function mountQuickAdd({ getStore, getMe }) {
       title: title.value,
       body: body.value,
       prio,
-      urgentie,
       soort,
       geparkeerd,
       toegewezen: [...people.querySelectorAll('input:checked')].map((box) => /** @type {HTMLInputElement} */ (box).value),
@@ -128,10 +125,7 @@ export function mountQuickAdd({ getStore, getMe }) {
   }
 
   function render() {
-    for (const chip of chips) {
-      const { qaPrio, qaUrgentie } = chip.dataset;
-      chip.setAttribute('aria-pressed', String(qaPrio ? qaPrio === prio : qaUrgentie === urgentie));
-    }
+    for (const chip of chips) chip.setAttribute('aria-pressed', String(chip.dataset.qaPrio === prio));
     park.textContent = geparkeerd ? `Geparkeerd tot ${monthName(geparkeerd, new Date())}` : 'Parkeren…';
     fillSoortChips(soortChips, offered.soorten, soort, (tapped) => {
       soort = tapSoort(soort, tapped);

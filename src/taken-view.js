@@ -59,7 +59,7 @@ export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
     },
     { threshold: 0.5 },
   );
-  const buttons = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-wie], [data-prio], [data-urgentie]'));
+  const buttons = /** @type {NodeListOf<HTMLButtonElement>} */ (panel.querySelectorAll('[data-wie], [data-prio]'));
 
   searchInput.addEventListener('input', () => {
     search = searchInput.value;
@@ -67,18 +67,16 @@ export function mountTaken({ storage, onOpen, onClose, onFilter = () => {} }) {
   });
   for (const button of buttons) {
     button.addEventListener('click', () => {
-      const { wie, prio, urgentie } = /** @type {any} */ (button.dataset);
+      const { wie, prio } = /** @type {any} */ (button.dataset);
       if (wie) setFilters({ ...filters, wie });
       if (prio) setFilters({ ...filters, prio: toggle(filters.prio, prio) });
-      if (urgentie) setFilters({ ...filters, urgentie: toggle(filters.urgentie, urgentie) });
     });
   }
 
   /** Whether a filter button is on. @param {HTMLButtonElement} button */
   function pressed(button) {
-    const { wie, prio, urgentie } = /** @type {any} */ (button.dataset);
-    if (wie) return wie === filters.wie;
-    return prio ? filters.prio.includes(prio) : filters.urgentie.includes(urgentie);
+    const { wie, prio } = /** @type {any} */ (button.dataset);
+    return wie ? wie === filters.wie : filters.prio.includes(prio);
   }
 
   /** @param {Filters} next */
@@ -252,10 +250,7 @@ export function rowElement(row, onOpen, onClose, { today, relevant }) {
   li.append(head);
 
   const meta = el('div', 'taak__meta');
-  meta.append(
-    badge(`prio-${row.prio}`, row.prio, `Prio: ${row.prio}`),
-    badge(`urgentie-${row.urgentie}`, row.urgentie, `Urgentie: ${row.urgentie}`),
-  );
+  meta.append(badge(`prio-${row.prio}`, row.prio, `Prio: ${row.prio}`));
   if (row.parkedUntil) meta.append(el('span', 'taak__parked', `tot ${monthName(row.parkedUntil, today)}`));
   li.append(meta);
 

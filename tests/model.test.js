@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toIssue, kindOf, prioOf, urgentieOf, blocking } from '../src/data/model.js';
+import { toIssue, kindOf, prioOf, blocking } from '../src/data/model.js';
 
 /** A GitHub REST issue as the list endpoint returns it. @param {Record<string, any>} [over] */
 function raw(over = {}) {
@@ -11,7 +11,7 @@ function raw(over = {}) {
     body: 'Woonkamer en slaapkamer',
     state: 'open',
     state_reason: null,
-    labels: [{ name: 'prio: high' }, { name: 'urgency: now' }],
+    labels: [{ name: 'prio: high' }, { name: 'soort: klusjes' }],
     assignees: [{ login: 'tjaronee', avatar_url: 'https://avatars/t.png' }],
     milestone: { number: 1, title: 'Nieuw huis 2026' },
     parent_issue_url: 'https://api.github.com/repos/Tjaronee/Nexus/issues/24',
@@ -30,7 +30,7 @@ test('reads the fields the screens need from a GitHub issue', () => {
   assert.equal(issue.number, 7);
   assert.equal(issue.ref, 7);
   assert.equal(issue.title, 'Meubels opmeten');
-  assert.deepEqual(issue.labels, ['prio: high', 'urgency: now']);
+  assert.deepEqual(issue.labels, ['prio: high', 'soort: klusjes']);
   assert.deepEqual(issue.assignees, [{ login: 'tjaronee', avatarUrl: 'https://avatars/t.png' }]);
   assert.equal(issue.blockedByCount, 2);
 });
@@ -65,13 +65,10 @@ test('every other issue is a Taak', () => {
   assert.equal(kindOf(toIssue(raw({ labels: [] }))), 'taak');
 });
 
-test('maps prio and urgency labels to Dutch values', () => {
-  const issue = toIssue(raw({ labels: [{ name: 'prio: low' }, { name: 'urgency: whenever' }] }));
-  assert.equal(prioOf(issue), 'laag');
-  assert.equal(urgentieOf(issue), 'ooit');
-  const high = toIssue(raw());
-  assert.equal(prioOf(high), 'hoog');
-  assert.equal(urgentieOf(high), 'nu');
+test('maps prio labels to Dutch values', () => {
+  assert.equal(prioOf(toIssue(raw({ labels: [{ name: 'prio: low' }] }))), 'laag');
+  assert.equal(prioOf(toIssue(raw({ labels: [{ name: 'prio: medium' }] }))), 'middel');
+  assert.equal(prioOf(toIssue(raw())), 'hoog');
 });
 
 test('lists the open issues a Taak is blocking', () => {
@@ -82,8 +79,6 @@ test('lists the open issues a Taak is blocking', () => {
   assert.deepEqual(blocking([busje, verhuizen, dozen], verhuizen), []);
 });
 
-test('unlabelled issues count as middel / binnenkort', () => {
-  const issue = toIssue(raw({ labels: [] }));
-  assert.equal(prioOf(issue), 'middel');
-  assert.equal(urgentieOf(issue), 'binnenkort');
+test('unlabelled issues count as middel', () => {
+  assert.equal(prioOf(toIssue(raw({ labels: [] }))), 'middel');
 });

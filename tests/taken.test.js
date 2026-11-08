@@ -70,31 +70,31 @@ test('an issue with sub-issues or the old Epic label, and its sub-issues, are or
   assert.deepEqual(titles(list).free, ['Verhuizen', 'Opruimen', 'Zolder']);
 });
 
-test('sorts by Urgentie, then Prio; unlabelled counts as binnenkort / middel', () => {
+test('sorts by Prio, hoog first; unlabelled counts as middel', () => {
   const list = [
-    issue({ title: 'ooit hoog', labels: ['urgency: whenever', 'prio: high'] }),
-    issue({ title: 'binnenkort laag', labels: ['urgency: soon', 'prio: low'] }),
+    issue({ title: 'laag', labels: ['prio: low'] }),
     issue({ title: 'geen labels' }),
-    issue({ title: 'nu laag', labels: ['urgency: now', 'prio: low'] }),
-    issue({ title: 'binnenkort hoog', labels: ['prio: high'] }),
-    issue({ title: 'nu hoog', labels: ['urgency: now', 'prio: high'] }),
+    issue({ title: 'hoog', labels: ['prio: high'] }),
+    issue({ title: 'middel', labels: ['prio: medium'] }),
   ];
-  assert.deepEqual(titles(list).free, [
-    'nu hoog',
-    'nu laag',
-    'binnenkort hoog',
-    'geen labels',
-    'binnenkort laag',
-    'ooit hoog',
-  ]);
+  assert.deepEqual(titles(list).free, ['hoog', 'geen labels', 'middel', 'laag']);
 });
 
-test('equal Urgentie and Prio keeps the oldest first', () => {
+test('equal Prio keeps the oldest first', () => {
   const list = [issue({ title: 'b', number: 30 }), issue({ title: 'a', number: 20 })];
   assert.deepEqual(titles(list).free, ['a', 'b']);
 });
 
-test('a row carries its Prio, Urgentie and assignees', () => {
+test('old urgency labels still on an issue are ignored', () => {
+  const list = [
+    issue({ title: 'oud nu', number: 50, labels: ['urgency: now'] }),
+    issue({ title: 'oud ooit hoog', number: 41, labels: ['urgency: whenever', 'prio: high'] }),
+    issue({ title: 'nieuw', number: 40 }),
+  ];
+  assert.deepEqual(titles(list).free, ['oud ooit hoog', 'nieuw', 'oud nu']);
+});
+
+test('a row carries its Prio and assignees', () => {
   const taak = issue({
     title: 'Dozen halen',
     labels: ['prio: high'],
@@ -102,25 +102,17 @@ test('a row carries its Prio, Urgentie and assignees', () => {
   });
   const [row] = takenList([taak], opts()).free;
   assert.equal(row.prio, 'hoog');
-  assert.equal(row.urgentie, 'binnenkort');
   assert.deepEqual(row.issue.assignees, [person('tjaronee')]);
 });
 
-test('filters on Prio and Urgentie, each a multi-select, combined', () => {
+test('filters on Prio, a multi-select', () => {
   const list = [
-    issue({ title: 'nu hoog', labels: ['urgency: now', 'prio: high'] }),
-    issue({ title: 'nu laag', labels: ['urgency: now', 'prio: low'] }),
-    issue({ title: 'ooit hoog', labels: ['urgency: whenever', 'prio: high'] }),
-    issue({ title: 'middel binnenkort' }),
+    issue({ title: 'hoog', labels: ['prio: high'] }),
+    issue({ title: 'laag', labels: ['prio: low'] }),
+    issue({ title: 'middel' }),
   ];
-  assert.deepEqual(titles(list, { filters: { ...ALL, prio: ['hoog', 'middel'] } }).free, [
-    'nu hoog',
-    'middel binnenkort',
-    'ooit hoog',
-  ]);
-  assert.deepEqual(titles(list, { filters: { ...ALL, prio: ['hoog'], urgentie: ['ooit', 'binnenkort'] } }).free, [
-    'ooit hoog',
-  ]);
+  assert.deepEqual(titles(list, { filters: { ...ALL, prio: ['hoog', 'middel'] } }).free, ['hoog', 'middel']);
+  assert.deepEqual(titles(list, { filters: { ...ALL, prio: ['laag'] } }).free, ['laag']);
 });
 
 test('"Mijn" is what I could pick up: mine plus unassigned; "Partner" the same from their side', () => {
@@ -142,8 +134,8 @@ test('"Mijn" depends on who is signed in, ignoring case of the login', () => {
 });
 
 test('Geblokkeerd Taken go to their own section, saying what they wait for', () => {
-  const blocker = issue({ title: 'Sleutel ophalen', labels: ['urgency: whenever'] });
-  const blocked = issue({ title: 'Verhuizen', labels: ['urgency: now'], blockedByCount: 1, blockedBy: [blocker.ref] });
+  const blocker = issue({ title: 'Sleutel ophalen', labels: ['prio: low'] });
+  const blocked = issue({ title: 'Verhuizen', labels: ['prio: high'], blockedByCount: 1, blockedBy: [blocker.ref] });
   const { free, blocked: waiting } = takenList([blocker, blocked], opts());
   assert.deepEqual(
     free.map((r) => r.issue.title),
@@ -179,11 +171,11 @@ test('the blocked section is filtered and sorted like the list', () => {
   const blocker = issue({ title: 'blocker' });
   const list = [
     blocker,
-    issue({ title: 'ooit', labels: ['urgency: whenever'], blockedBy: [blocker.ref] }),
-    issue({ title: 'nu', labels: ['urgency: now'], blockedBy: [blocker.ref] }),
-    issue({ title: 'partner', labels: ['urgency: now'], assignees: [person('partner')], blockedBy: [blocker.ref] }),
+    issue({ title: 'laag', labels: ['prio: low'], blockedBy: [blocker.ref] }),
+    issue({ title: 'hoog', labels: ['prio: high'], blockedBy: [blocker.ref] }),
+    issue({ title: 'partner', labels: ['prio: high'], assignees: [person('partner')], blockedBy: [blocker.ref] }),
   ];
-  assert.deepEqual(titles(list, { filters: { ...ALL, wie: 'mijn' } }).blocked, ['nu', 'ooit']);
+  assert.deepEqual(titles(list, { filters: { ...ALL, wie: 'mijn' } }).blocked, ['hoog', 'laag']);
 });
 
 test('search matches title and description, ignoring case and accents', () => {
@@ -207,9 +199,9 @@ test('filters are remembered on the device', () => {
   const storage = memoryStorage();
   assert.deepEqual(loadFilters(storage), ALL);
 
-  saveFilters(storage, { prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn', soort: ['klusjes', null] });
+  saveFilters(storage, { prio: ['hoog'], wie: 'mijn', soort: ['klusjes', null] });
 
-  assert.deepEqual(loadFilters(storage), { prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn', soort: ['klusjes', null] });
+  assert.deepEqual(loadFilters(storage), { prio: ['hoog'], wie: 'mijn', soort: ['klusjes', null] });
 });
 
 test('unreadable or outdated remembered filters fall back to showing everything', () => {
@@ -217,11 +209,15 @@ test('unreadable or outdated remembered filters fall back to showing everything'
   storage.setItem('nexus.takenFilters', '{not json');
   assert.deepEqual(loadFilters(storage), ALL);
 
-  storage.setItem('nexus.takenFilters', JSON.stringify({ prio: ['heel hoog', 'laag'], urgentie: 'nu', wie: 'ik' }));
+  storage.setItem('nexus.takenFilters', JSON.stringify({ prio: ['heel hoog', 'laag'], wie: 'ik' }));
   assert.deepEqual(loadFilters(storage), { ...ALL, prio: ['laag'] });
 
   storage.setItem('nexus.takenFilters', JSON.stringify({ soort: ['Huishouden', 3, null] }));
   assert.deepEqual(loadFilters(storage).soort, ['huishouden', null]);
+
+  // An older version also remembered a filter that no longer exists.
+  storage.setItem('nexus.takenFilters', JSON.stringify({ prio: ['hoog'], urgentie: ['nu', 'ooit'], wie: 'mijn', soort: [] }));
+  assert.deepEqual(loadFilters(storage), { ...ALL, prio: ['hoog'], wie: 'mijn' });
 });
 
 test('a remembered Soort that no longer exists is dropped silently', () => {
@@ -235,7 +231,6 @@ test('a remembered Soort that no longer exists is dropped silently', () => {
 test('knows whether any filter is on', () => {
   assert.equal(isFiltered(ALL), false);
   assert.equal(isFiltered({ ...ALL, prio: ['hoog'] }), true);
-  assert.equal(isFiltered({ ...ALL, urgentie: ['nu'] }), true);
   assert.equal(isFiltered({ ...ALL, wie: 'mijn' }), true);
   assert.equal(isFiltered({ ...ALL, soort: [null] }), true);
 });
@@ -248,15 +243,15 @@ function grouped(issues, options = {}) {
 
 test('the free Taken are grouped per Soort, alphabetically, Geen soort last, sorted within', () => {
   const list = [
-    issue({ title: 'zonder', labels: ['urgency: now'] }),
-    issue({ title: 'feest ooit', labels: ['soort: sociaal', 'urgency: whenever'] }),
+    issue({ title: 'zonder', labels: ['prio: high'] }),
+    issue({ title: 'feest laag', labels: ['soort: sociaal', 'prio: low'] }),
     issue({ title: 'stofzuigen', labels: ['soort: huishouden'] }),
-    issue({ title: 'feest nu', labels: ['soort: sociaal', 'urgency: now', 'prio: low'] }),
-    issue({ title: 'bellen nu hoog', labels: ['soort: Sociaal', 'urgency: now', 'prio: high'] }),
+    issue({ title: 'feest middel', labels: ['soort: sociaal'] }),
+    issue({ title: 'bellen hoog', labels: ['soort: Sociaal', 'prio: high'] }),
   ];
   assert.deepEqual(grouped(list), [
     ['huishouden', ['stofzuigen']],
-    ['sociaal', ['bellen nu hoog', 'feest nu', 'feest ooit']],
+    ['sociaal', ['bellen hoog', 'feest middel', 'feest laag']],
     [null, ['zonder']],
   ]);
 });
@@ -308,22 +303,24 @@ test('from the first of its month a Taak is back in the list', () => {
   assert.deepEqual(titles(list, { today: new Date(2026, 11, 1, 0, 0) }), { free: ['zonnepanelen', 'oud'], blocked: [], parked: [] });
 });
 
-test('the Geparkeerd section is sorted by month, then like the list, and each row knows its month', () => {
+test('the Geparkeerd section is sorted by month, then Prio, then oldest first, and each row knows its month', () => {
   const list = [
-    issue({ title: 'maart', labels: ['geparkeerd: 2027-03', 'urgency: now'] }),
-    issue({ title: 'februari ooit', labels: ['geparkeerd: 2027-02', 'urgency: whenever'] }),
-    issue({ title: 'februari nu laag', labels: ['geparkeerd: 2027-02', 'urgency: now', 'prio: low'] }),
-    issue({ title: 'februari nu hoog', labels: ['geparkeerd: 2027-02', 'urgency: now', 'prio: high'] }),
-    issue({ title: 'december', labels: ['geparkeerd: 2026-12', 'urgency: whenever', 'prio: low'] }),
+    issue({ title: 'maart', number: 60, labels: ['geparkeerd: 2027-03', 'prio: high'] }),
+    issue({ title: 'februari laag', number: 61, labels: ['geparkeerd: 2027-02', 'prio: low'] }),
+    issue({ title: 'februari middel nieuw', number: 63, labels: ['geparkeerd: 2027-02'] }),
+    issue({ title: 'februari middel oud', number: 62, labels: ['geparkeerd: 2027-02'] }),
+    issue({ title: 'februari hoog', number: 64, labels: ['geparkeerd: 2027-02', 'prio: high'] }),
+    issue({ title: 'december', number: 65, labels: ['geparkeerd: 2026-12', 'prio: low'] }),
   ];
   const { parked, free } = takenList(list, opts());
   assert.deepEqual(
     parked.map((r) => [r.issue.title, r.parkedUntil]),
     [
       ['december', '2026-12'],
-      ['februari nu hoog', '2027-02'],
-      ['februari nu laag', '2027-02'],
-      ['februari ooit', '2027-02'],
+      ['februari hoog', '2027-02'],
+      ['februari middel oud', '2027-02'],
+      ['februari middel nieuw', '2027-02'],
+      ['februari laag', '2027-02'],
       ['maart', '2027-03'],
     ],
   );

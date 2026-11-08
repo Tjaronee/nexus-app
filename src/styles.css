@@ -324,7 +324,6 @@ button {
   overflow-x: auto;
   scrollbar-width: none;
 }
-.chips__gap { flex: 0 0 0.5rem; }
 .chip {
   flex: none;
   min-height: 34px;
@@ -376,8 +375,8 @@ button {
   color: var(--muted);
   line-height: 1.5rem;
 }
-.badge--prio-hoog, .badge--urgentie-nu { border-color: var(--danger); color: var(--danger); }
-.badge--prio-laag, .badge--urgentie-ooit { border-style: dashed; }
+.badge--prio-hoog { border-color: var(--danger); color: var(--danger); }
+.badge--prio-laag { border-style: dashed; }
 
 .link {
   padding: 0;

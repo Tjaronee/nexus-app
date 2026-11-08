@@ -1,11 +1,10 @@
-import { PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
+import { PRIO_LABELS } from './data/model.js';
 import { SOORT_PREFIX, knownSoorten } from './soort.js';
 import { GEPARKEERD_PREFIX } from './geparkeerd.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./data/model.js').Prio} Prio */
-/** @typedef {import('./data/model.js').Urgentie} Urgentie */
 /** @typedef {ReturnType<import('./data/store.js').createStore>} Store */
 /** @typedef {import('./taken.js').Filters} Filters */
 /** @typedef {import('./geparkeerd.js').Month} Month */
@@ -18,7 +17,6 @@ import { GEPARKEERD_PREFIX } from './geparkeerd.js';
  *   title: string,
  *   body: string,
  *   prio: Prio,
- *   urgentie: Urgentie,
  *   soort: string | null,
  *   geparkeerd: Month | null,
  *   toegewezen: string[],
@@ -27,12 +25,11 @@ import { GEPARKEERD_PREFIX } from './geparkeerd.js';
  * }} Draft
  */
 
-/** A new Taak is middel / binnenkort (Nexus ADR 0001) and nothing else. @type {Draft} */
+/** A new Taak is middel (Nexus ADR 0001) and nothing else. @type {Draft} */
 export const DEFAULTS = {
   title: '',
   body: '',
   prio: 'middel',
-  urgentie: 'binnenkort',
   soort: null,
   geparkeerd: null,
   toegewezen: [],
@@ -57,7 +54,6 @@ export function saveDraft(store, draft) {
     body: draft.body.trim(),
     labels: [
       PRIO_LABELS[draft.prio],
-      URGENTIE_LABELS[draft.urgentie],
       ...(draft.soort ? [SOORT_PREFIX + draft.soort] : []),
       ...(draft.geparkeerd ? [GEPARKEERD_PREFIX + draft.geparkeerd] : []),
     ],
