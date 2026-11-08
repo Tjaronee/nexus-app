@@ -114,12 +114,13 @@ function connect() {
 
 function renderLists() {
   const state = store?.getState();
+  const online = state?.online ?? true;
   taken.update(state?.issues ?? [], getMe(), state?.labels ?? []);
   // Indeling's sections each lock their own buttons; the notice above them is shared.
-  $('indeling-offline').hidden = state?.online ?? true;
-  soorten.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
-  plekken.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
-  locaties.update(state?.labels ?? [], state?.labelDescriptions ?? {}, state?.online ?? true);
+  $('indeling-offline').hidden = online;
+  soorten.update(state?.issues ?? [], state?.labels ?? [], online);
+  plekken.update(state?.issues ?? [], state?.labels ?? [], online);
+  locaties.update(state?.labels ?? [], state?.labelDescriptions ?? {}, online);
   boodschappen.render();
   boodschapAdd.render();
   pakketten.update(state?.issues ?? [], savedLocaties(state?.labels ?? [], state?.labelDescriptions ?? {}));
