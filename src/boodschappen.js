@@ -14,31 +14,17 @@ export const PLEK_PREFIX = 'waar: ';
  * The Boodschappen tab: the open Boodschappen grouped by Plek, and a chip per
  * Plek to zoom in on it. A chip only exists for a Plek with something open,
  * except the one zoomed in on, so it can still be tapped to zoom out.
- *
- * In het mandje is what was bought since `mandjeSince`, a time on this phone's
- * clock. GitHub's clock can differ, so what was ticked on this phone
- * (`tickedHere`) is in it regardless.
  * @param {Issue[]} issues
- * @param {{ zoom: Zoom, mandjeSince: string, tickedHere?: IssueRef[] }} options
+ * @param {{ zoom: Zoom }} options
  */
-export function boodschappenList(issues, { zoom, mandjeSince, tickedHere = [] }) {
-  const all = issues.filter((i) => kindOf(i) === 'boodschap');
-  const openIssues = all.filter((i) => i.state === 'open');
+export function boodschappenList(issues, { zoom }) {
+  const openIssues = issues.filter((i) => i.state === 'open' && kindOf(i) === 'boodschap');
   // Two open with one name were added at nearly the same time; the user removes one.
   /** @type {Map<string, number>} */
   const perName = new Map();
   for (const i of openIssues) perName.set(nameKey(i.title), (perName.get(nameKey(i.title)) ?? 0) + 1);
   const isDouble = (/** @type {Issue} */ i) => (perName.get(nameKey(i.title)) ?? 0) > 1;
   const open = openIssues.map((i) => toItem(i, isDouble(i)));
-  // Removed ones (not planned) never go in.
-  const since = Date.parse(mandjeSince);
-  const closedAt = (/** @type {Issue} */ i) => Date.parse(i.closedAt ?? '') || 0;
-  const bought = (/** @type {Issue} */ i) => closedAt(i) >= since || tickedHere.some((ref) => matchesRef(i, ref));
-  const mandje = all
-    .filter((i) => i.state === 'closed' && i.stateReason === 'completed' && bought(i))
-    .filter((i) => !zoom || plekKeys(i).includes(zoom.plek))
-    .sort((a, b) => closedAt(b) - closedAt(a))
-    .map((i) => toItem(i, false));
   const keys = [...new Set(open.flatMap((item) => plekKeys(item.issue)))];
   if (zoom && !keys.includes(zoom.plek)) keys.push(zoom.plek);
   keys.sort(byPlek);
@@ -52,7 +38,6 @@ export function boodschappenList(issues, { zoom, mandjeSince, tickedHere = [] })
     groups: keys
       .filter((plek) => !zoom || zoom.plek === plek)
       .map((plek) => ({ plek, items: itemsAt(plek).sort(byTitle) })),
-    mandje,
   };
 }
 

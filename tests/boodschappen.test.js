@@ -39,10 +39,8 @@ function issue(over = {}) {
 const boodschap = (title, plekken = [], over = {}) =>
   issue({ title, labels: ['boodschappen', ...plekken.map((p) => `waar: ${p}`)], ...over });
 
-const OPENED = '2026-09-29T12:00:00Z';
-
 /** @param {Issue[]} issues @param {Partial<Parameters<typeof boodschappenList>[1]>} [options] */
-const list = (issues, options = {}) => boodschappenList(issues, { zoom: null, mandjeSince: OPENED, ...options });
+const list = (issues, options = {}) => boodschappenList(issues, { zoom: null, ...options });
 
 /** @param {ReturnType<typeof list>} view */
 const groups = (view) => view.groups.map((g) => [g.plek, g.items.map((i) => i.issue.title)]);
@@ -92,36 +90,19 @@ test('zooming in on a Plek shows only its group', () => {
   assert.deepEqual(groups(list(issues, { zoom: { plek: null } })), [[null, ['melk']]]);
 });
 
-test('In het mandje holds what was bought since the app opened, last ticked first; removed ones are not in it', () => {
-  const bought = { state: /** @type {const} */ ('closed'), stateReason: /** @type {const} */ ('completed') };
+test('a bought or removed Boodschap is gone from the list', () => {
   const issues = [
-    boodschap('vorige keer', [], { ...bought, closedAt: '2026-09-28T09:00:00Z' }),
-    boodschap('melk', [], { ...bought, closedAt: '2026-09-29T12:05:00Z' }),
-    boodschap('brood', ['bakker'], { ...bought, closedAt: '2026-09-29T12:10:00Z' }),
-    boodschap('weg', [], { state: 'closed', stateReason: 'not_planned', closedAt: '2026-09-29T12:07:00Z' }),
+    boodschap('melk', [], { state: 'closed', stateReason: 'completed' }),
+    boodschap('weg', [], { state: 'closed', stateReason: 'not_planned' }),
     boodschap('kaas'),
   ];
   const view = list(issues);
-  assert.deepEqual(
-    view.mandje.map((i) => i.issue.title),
-    ['brood', 'melk'],
-  );
   assert.deepEqual(groups(view), [[null, ['kaas']]]);
-
-  assert.deepEqual(list(issues, { mandjeSince: '2026-09-29T12:08:00Z' }).mandje.map((i) => i.issue.title), ['brood']);
-});
-
-test('zoomed in, In het mandje shows only what belongs to that Plek', () => {
-  const bought = { state: /** @type {const} */ ('closed'), stateReason: /** @type {const} */ ('completed'), closedAt: '2026-09-29T12:05:00Z' };
-  const issues = [boodschap('brood', ['bakker'], bought), boodschap('melk', [], bought)];
-  assert.deepEqual(
-    list(issues, { zoom: { plek: 'bakker' } }).mandje.map((i) => i.issue.title),
-    ['brood'],
-  );
+  assert.equal('mandje' in view, false, 'there is no In het mandje');
 });
 
 test('the zoomed-in Plek keeps its chip and group when its last Boodschap is bought', () => {
-  const issues = [boodschap('schroeven', ['praxis'], { state: 'closed', stateReason: 'completed', closedAt: OPENED })];
+  const issues = [boodschap('schroeven', ['praxis'], { state: 'closed', stateReason: 'completed' })];
   const view = list(issues, { zoom: { plek: 'praxis' } });
   assert.deepEqual(
     view.chips.map((c) => [c.zoom, c.count, c.selected]),
@@ -173,7 +154,7 @@ test('saving an unchanged Boodschap sends nothing, and a blank name is refused',
   assert.equal(store.getState().pending, 0);
 });
 
-test('two phones ticking off at the same time both end up with everything In het mandje', async () => {
+test('two phones ticking off at the same time both end up with only what is left on the list', async () => {
   const server = createFakeGitHub();
   const melk = server.addIssue({ title: 'melk', labels: ['boodschappen', 'waar: praxis'] });
   const brood = server.addIssue({ title: 'brood', labels: ['boodschappen', 'waar: praxis'] });
@@ -188,9 +169,7 @@ test('two phones ticking off at the same time both end up with everything In het
   await Promise.all([mine.refresh(), theirs.refresh()]);
 
   for (const store of [mine, theirs]) {
-    const view = boodschappenList(store.getState().issues, { zoom: { plek: 'praxis' }, mandjeSince: '2026-01-01T00:00:00Z' });
-    assert.deepEqual(view.mandje.map((i) => i.issue.title).sort(), ['brood', 'melk']);
-    assert.deepEqual(groups(view), [['praxis', ['kaas']]]);
+    assert.deepEqual(groups(boodschappenList(store.getState().issues, { zoom: { plek: 'praxis' } })), [['praxis', ['kaas']]]);
   }
   assert.equal(find(mine, kaas.number)?.state, 'open');
 });
@@ -200,13 +179,21 @@ test('the edit sheet offers every known Plek, alphabetically', () => {
   assert.deepEqual(plekChoices(['prio: high', 'waar: praxis', 'boodschappen', 'waar: centrum'], melk), ['centrum', 'praxis', 'zeeman']);
 });
 
-test("what was ticked on this phone stays In het mandje, even if GitHub's clock says it was before", () => {
-  const melk = boodschap('melk', [], { state: 'closed', stateReason: 'completed', closedAt: '2026-09-29T11:59:00Z' });
-  assert.deepEqual(list([melk]).mandje, []);
-  assert.deepEqual(
-    list([melk], { tickedHere: [melk.ref] }).mandje.map((i) => i.issue.title),
-    ['melk'],
-  );
+test('undoing a tick puts the Boodschap back on the list as it was', async () => {
+  const server = createFakeGitHub();
+  const melk = server.addIssue({ title: 'melk', body: '2 liter', labels: ['boodschappen', 'waar: praxis'] });
+  const store = phone(server);
+  await store.refresh();
+
+  store.close(melk.number, 'completed');
+  assert.deepEqual(groups(list(store.getState().issues)), []);
+  store.reopen(melk.number);
+  await store.flush();
+  await store.refresh();
+
+  assert.deepEqual(groups(list(store.getState().issues)), [['praxis', ['melk']]]);
+  assert.equal(server.byNumber(melk.number).state, 'open');
+  assert.equal(server.byNumber(melk.number).body, '2 liter');
 });
 
 test('a Plek label written in capitals is kept, not removed and added again', async () => {

@@ -18,19 +18,13 @@ const DRAG_CLICK_MS = 400;
 /**
  * The Boodschappen tab in #panel-boodschappen, and the sheet to edit one.
  *
- * In het mandje shows what was bought since the app opened, so it empties
- * each time the app starts, or when "Leegmaken" is pressed.
- *
  * @param {{ getStore: () => Store | null, onRemove: (issue: Issue) => void, onTick: (issue: Issue) => void, onZoom: (zoom: Zoom) => void }} deps
- *   `onRemove` closes a Boodschap that is no longer needed; `onTick` is told
- *   when one was ticked; `onZoom` is told when a Plek chip is tapped.
+ *   `onRemove` closes a Boodschap that is no longer needed; `onTick` closes
+ *   one that was bought; `onZoom` is told when a Plek chip is tapped.
  */
 export function mountBoodschappen({ getStore, onRemove, onTick, onZoom }) {
   /** @type {Zoom} */
   let zoom = null;
-  let mandjeSince = new Date().toISOString();
-  /** What was ticked on this phone since then. @type {IssueRef[]} */
-  let tickedHere = [];
 
   const dialog = /** @type {HTMLDialogElement} */ ($('boodschap'));
   const form = /** @type {HTMLFormElement} */ ($('b-form'));
@@ -40,15 +34,9 @@ export function mountBoodschappen({ getStore, onRemove, onTick, onZoom }) {
   /** The Boodschap being edited. @type {IssueRef | null} */
   let editing = null;
 
-  $('b-clear').addEventListener('click', () => {
-    mandjeSince = new Date().toISOString();
-    tickedHere = [];
-    render();
-  });
-
   function render() {
     const store = getStore();
-    const view = boodschappenList(store?.getState().issues ?? [], { zoom, mandjeSince, tickedHere });
+    const view = boodschappenList(store?.getState().issues ?? [], { zoom });
 
     $('b-chips').replaceChildren(
       ...view.chips.map((chip) => {
@@ -79,9 +67,6 @@ export function mountBoodschappen({ getStore, onRemove, onTick, onZoom }) {
     const openCount = view.groups.reduce((n, g) => n + g.items.length, 0);
     $('b-empty').textContent = zoom ? 'Hier hoeft niets meer gehaald te worden.' : 'Geen Boodschappen.';
     $('b-empty').hidden = openCount > 0;
-
-    $('b-mandje-list').replaceChildren(...view.mandje.map(mandjeRow));
-    $('b-mandje').hidden = view.mandje.length === 0;
   }
 
   /** @param {Item} item */
@@ -91,14 +76,8 @@ export function mountBoodschappen({ getStore, onRemove, onTick, onZoom }) {
     check.type = 'button';
     check.setAttribute('role', 'checkbox');
     check.setAttribute('aria-checked', 'false');
-    check.setAttribute('aria-label', `${item.issue.title} in het mandje`);
-    check.addEventListener('click', () => {
-      const store = getStore();
-      if (!store) return;
-      tickedHere = [...tickedHere, item.issue.ref];
-      store.close(item.issue.ref, 'completed');
-      onTick(item.issue);
-    });
+    check.setAttribute('aria-label', `${item.issue.title} gekocht`);
+    check.addEventListener('click', () => onTick(item.issue));
     const name = /** @type {HTMLButtonElement} */ (el('button', 'boodschap__name', item.issue.title));
     name.type = 'button';
     name.addEventListener('click', () => edit(item.issue.ref));
@@ -108,17 +87,6 @@ export function mountBoodschappen({ getStore, onRemove, onTick, onZoom }) {
     if (item.double) text.append(el('div', 'boodschap__double', 'mogelijk dubbel'));
     li.append(check, text);
     swipeToRemove(li, () => onRemove(item.issue));
-    return li;
-  }
-
-  /** Tapping a Boodschap In het mandje puts it back on the list. @param {Item} item */
-  function mandjeRow(item) {
-    const li = el('li', 'boodschap boodschap--mandje');
-    const button = /** @type {HTMLButtonElement} */ (el('button', 'boodschap__name', item.issue.title));
-    button.type = 'button';
-    button.setAttribute('aria-label', `${item.issue.title} terug op de lijst`);
-    button.addEventListener('click', () => getStore()?.reopen(item.issue.ref));
-    li.append(button);
     return li;
   }
 
