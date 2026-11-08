@@ -45,7 +45,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
    * Set while the copy button shows how copying went, so a redraw leaves that alone.
    * @type {ReturnType<typeof setTimeout> | undefined}
    */
-  let copyFeedback;
+  let copyFeedbackTimer;
 
   const current = () => {
     const store = getStore();
@@ -87,8 +87,8 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     bodyView.hidden = false;
     blockers.close();
     blocks.close();
-    clearTimeout(copyFeedback);
-    copyFeedback = undefined;
+    clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = undefined;
     if (!dialog.open) dialog.showModal();
     // The title is not focused, so the keyboard doesn't cover the screen.
     title.blur();
@@ -102,15 +102,21 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   copy.addEventListener('click', async () => {
     const number = current()?.issue.number;
     if (!number) return;
+    const copiedFrom = ref;
+    /** @type {string} */
+    let result;
     try {
       await navigator.clipboard.writeText(`#${number}`);
-      copy.textContent = 'Gekopieerd';
+      result = 'Gekopieerd';
     } catch {
-      copy.textContent = 'Lukt niet';
+      result = 'Lukt niet';
     }
-    clearTimeout(copyFeedback);
-    copyFeedback = setTimeout(() => {
-      copyFeedback = undefined;
+    // Another Taak opened meanwhile: its button keeps its own label.
+    if (ref !== copiedFrom) return;
+    copy.textContent = result;
+    clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = setTimeout(() => {
+      copyFeedbackTimer = undefined;
       render();
     }, 1500);
   });
@@ -231,7 +237,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     // The copy button is for naming a Kennisbank file, so only a Taak on GitHub has one.
     const number = detail?.issue.number;
     copy.hidden = !number;
-    if (number && !copyFeedback) copy.textContent = `Kopieer #${number}`;
+    if (number && !copyFeedbackTimer) copy.textContent = `Kopieer #${number}`;
     if (!detail) {
       heading.textContent = 'Taak';
       return;
@@ -298,7 +304,7 @@ function commentItem(comment) {
   const head = el('div', 'comment__head');
   head.append(
     el('span', 'comment__author', comment.author?.login ?? 'Jij'),
-    el('span', 'muted', comment.pending ? ' · wordt verstuurd' : ` · ${formatDate(comment.createdAt)}`),
+    el('span', 'muted', comment.pending ? ' Â· wordt verstuurd' : ` Â· ${formatDate(comment.createdAt)}`),
   );
   li.append(head, renderMarkdown(parseMarkdown(comment.body), null));
   return li;
