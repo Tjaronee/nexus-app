@@ -56,7 +56,7 @@ const soorten = mountSoorten({ getStore: () => store });
 const plekken = mountPlekken({ getStore: () => store });
 const locaties = mountLocaties({ getStore: () => store });
 const boodschapAdd = mountBoodschapAdd({ getStore: () => store });
-const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onTick: closing.ticked, onZoom: boodschapAdd.setZoom });
+const boodschappen = mountBoodschappen({ getStore: () => store, onRemove: closing.remove, onTick: closing.tick, onZoom: boodschapAdd.setZoom });
 const pakketten = mountPakketten({ getStore: () => store, onBinnen: closing.binnen, onWeg: closing.weg });
 
 session.subscribe(render);
