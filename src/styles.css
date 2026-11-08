@@ -655,7 +655,8 @@ textarea.field { resize: vertical; }
   color: var(--accent);
 }
 .back svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.number { flex: 1; margin: 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.page__title { flex: 1; min-width: 0; margin: 0; font-size: 1.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.page__bar .small-button { flex: none; }
 .small-button {
   min-height: 36px;
   padding: 0 0.875rem;
