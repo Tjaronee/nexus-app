@@ -38,9 +38,15 @@ const person = (login) => ({ login, avatarUrl: `https://avatars/${login}.png` })
 
 /** @param {Issue[]} issues @param {Partial<Parameters<typeof takenList>[1]>} [options] */
 function titles(issues, options = {}) {
-  const { free, blocked } = takenList(issues, { filters: ALL, search: '', me: 'tjaronee', ...options });
-  return { free: free.map((r) => r.issue.title), blocked: blocked.map((r) => r.issue.title) };
+  const { free, blocked, parked } = takenList(issues, opts(options));
+  return { free: free.map((r) => r.issue.title), blocked: blocked.map((r) => r.issue.title), parked: parked.map((r) => r.issue.title) };
 }
+
+/** 8 November 2026, on the phone's clock. */
+const TODAY = new Date(2026, 10, 8, 12);
+
+/** takenList's options: everything, for tjaronee, today. @param {Partial<Parameters<typeof takenList>[1]>} [options] */
+const opts = (options = {}) => ({ filters: ALL, search: '', me: 'tjaronee', today: TODAY, ...options });
 
 test('shows open Taken only: no Boodschappen, Pakketten or closed issues', () => {
   const list = [
@@ -94,7 +100,7 @@ test('a row carries its Prio, Urgentie and assignees', () => {
     labels: ['prio: high'],
     assignees: [person('tjaronee')],
   });
-  const [row] = takenList([taak], { filters: ALL, search: '', me: 'tjaronee' }).free;
+  const [row] = takenList([taak], opts()).free;
   assert.equal(row.prio, 'hoog');
   assert.equal(row.urgentie, 'binnenkort');
   assert.deepEqual(row.issue.assignees, [person('tjaronee')]);
@@ -138,7 +144,7 @@ test('"Mijn" depends on who is signed in, ignoring case of the login', () => {
 test('Geblokkeerd Taken go to their own section, saying what they wait for', () => {
   const blocker = issue({ title: 'Sleutel ophalen', labels: ['urgency: whenever'] });
   const blocked = issue({ title: 'Verhuizen', labels: ['urgency: now'], blockedByCount: 1, blockedBy: [blocker.ref] });
-  const { free, blocked: waiting } = takenList([blocker, blocked], { filters: ALL, search: '', me: 'tjaronee' });
+  const { free, blocked: waiting } = takenList([blocker, blocked], opts());
   assert.deepEqual(
     free.map((r) => r.issue.title),
     ['Sleutel ophalen'],
@@ -154,10 +160,10 @@ test('a Taak returns to the list once every blocker is closed', () => {
   const b = issue({ title: 'b', state: 'closed', stateReason: 'completed' });
   const taak = issue({ title: 'taak', blockedByCount: 2, blockedBy: [a.ref, b.ref] });
 
-  const partly = takenList([a, b, taak], { filters: ALL, search: '', me: 'tjaronee' });
+  const partly = takenList([a, b, taak], opts());
   assert.deepEqual(partly.blocked.map((r) => r.waitingFor.map((w) => w.title)), [['a']]);
 
-  const done = takenList([{ ...a, state: 'closed' }, b, taak], { filters: ALL, search: '', me: 'tjaronee' });
+  const done = takenList([{ ...a, state: 'closed' }, b, taak], opts());
   assert.deepEqual(done.free.map((r) => r.issue.title), ['taak']);
   assert.equal(done.blocked.length, 0);
 });
@@ -165,7 +171,7 @@ test('a Taak returns to the list once every blocker is closed', () => {
 test('a blocker that is still being created counts, found by its client ID', () => {
   const pending = issue({ ref: 'cid-1', number: null, cid: 'cid-1', title: 'nieuw' });
   const taak = issue({ title: 'taak', blockedByCount: 1, blockedBy: ['cid-1'] });
-  const { blocked } = takenList([pending, taak], { filters: ALL, search: '', me: 'tjaronee' });
+  const { blocked } = takenList([pending, taak], opts());
   assert.deepEqual(blocked.map((r) => r.waitingFor.map((w) => w.ref)), [['cid-1']]);
 });
 
@@ -236,7 +242,7 @@ test('knows whether any filter is on', () => {
 
 /** @param {Issue[]} issues @param {Partial<Parameters<typeof takenList>[1]>} [options] */
 function grouped(issues, options = {}) {
-  const { free } = takenList(issues, { filters: ALL, search: '', me: 'tjaronee', ...options });
+  const { free } = takenList(issues, opts(options));
   return groupBySoort(free).map((g) => [g.soort, g.rows.map((r) => r.issue.title)]);
 }
 
@@ -277,5 +283,79 @@ test('the Soort filter is a multi-select that also filters Geblokkeerd', () => {
     ['klusjes', ['kast']],
   ]);
   assert.deepEqual(titles(list, { filters }).blocked, ['plank']);
-  assert.deepEqual(titles(list, { filters: { ...ALL, soort: [null] } }), { free: ['zonder'], blocked: [] });
+  assert.deepEqual(titles(list, { filters: { ...ALL, soort: [null] } }), { free: ['zonder'], blocked: [], parked: [] });
+});
+
+test('Geparkeerd Taken are in their own section, not in the list or Geblokkeerd', () => {
+  const blocker = issue({ title: 'blocker' });
+  const list = [
+    blocker,
+    issue({ title: 'zonnepanelen', labels: ['geparkeerd: 2027-02', 'soort: klusjes'] }),
+    issue({ title: 'geparkeerd en geblokkeerd', labels: ['geparkeerd: 2027-01'], blockedBy: [blocker.ref] }),
+    issue({ title: 'geblokkeerd', blockedBy: [blocker.ref] }),
+  ];
+  assert.deepEqual(titles(list), {
+    free: ['blocker'],
+    blocked: ['geblokkeerd'],
+    parked: ['geparkeerd en geblokkeerd', 'zonnepanelen'],
+  });
+});
+
+test('from the first of its month a Taak is back in the list', () => {
+  const list = [issue({ title: 'zonnepanelen', labels: ['geparkeerd: 2026-12'] }), issue({ title: 'oud', labels: ['geparkeerd: 2026-03'] })];
+  assert.deepEqual(titles(list), { free: ['oud'], blocked: [], parked: ['zonnepanelen'] });
+  assert.deepEqual(titles(list, { today: new Date(2026, 10, 30, 23, 59) }).parked, ['zonnepanelen']);
+  assert.deepEqual(titles(list, { today: new Date(2026, 11, 1, 0, 0) }), { free: ['zonnepanelen', 'oud'], blocked: [], parked: [] });
+});
+
+test('the Geparkeerd section is sorted by month, then like the list, and each row knows its month', () => {
+  const list = [
+    issue({ title: 'maart', labels: ['geparkeerd: 2027-03', 'urgency: now'] }),
+    issue({ title: 'februari ooit', labels: ['geparkeerd: 2027-02', 'urgency: whenever'] }),
+    issue({ title: 'februari nu laag', labels: ['geparkeerd: 2027-02', 'urgency: now', 'prio: low'] }),
+    issue({ title: 'februari nu hoog', labels: ['geparkeerd: 2027-02', 'urgency: now', 'prio: high'] }),
+    issue({ title: 'december', labels: ['geparkeerd: 2026-12', 'urgency: whenever', 'prio: low'] }),
+  ];
+  const { parked, free } = takenList(list, opts());
+  assert.deepEqual(
+    parked.map((r) => [r.issue.title, r.parkedUntil]),
+    [
+      ['december', '2026-12'],
+      ['februari nu hoog', '2027-02'],
+      ['februari nu laag', '2027-02'],
+      ['februari ooit', '2027-02'],
+      ['maart', '2027-03'],
+    ],
+  );
+  assert.equal(free.length, 0);
+});
+
+test('a row whose month has started is not Geparkeerd', () => {
+  const [row] = takenList([issue({ labels: ['geparkeerd: 2026-11'] })], opts()).free;
+  assert.equal(row.parkedUntil, null);
+});
+
+test('Geparkeerd follows the Wie, Prio and Soort filters and the search', () => {
+  const list = [
+    issue({ title: 'zonnepanelen', labels: ['geparkeerd: 2027-02', 'soort: klusjes', 'prio: high'] }),
+    issue({ title: 'feest', labels: ['geparkeerd: 2027-02', 'soort: sociaal'], assignees: [person('partner')] }),
+  ];
+  assert.deepEqual(titles(list, { filters: { ...ALL, soort: ['klusjes'] } }).parked, ['zonnepanelen']);
+  assert.deepEqual(titles(list, { filters: { ...ALL, prio: ['middel'] } }).parked, ['feest']);
+  assert.deepEqual(titles(list, { filters: { ...ALL, wie: 'mijn' } }).parked, ['zonnepanelen']);
+  assert.deepEqual(titles(list, { search: 'feest' }).parked, ['feest']);
+});
+
+test('a Taak waiting on a Geparkeerd Taak knows until when that is parked', () => {
+  const parked = issue({ title: 'zonnepanelen', labels: ['geparkeerd: 2027-02'] });
+  const free = issue({ title: 'dak', labels: ['geparkeerd: 2026-10'] });
+  const taak = issue({ title: 'subsidie', blockedBy: [parked.ref, free.ref] });
+  const [row] = takenList([parked, free, taak], opts()).blocked;
+  assert.deepEqual(
+    row.waitingFor.map((w) => [w.title, w.parkedUntil]),
+    [
+      ['zonnepanelen', '2027-02'],
+      ['dak', null],
+    ],
+  );
 });

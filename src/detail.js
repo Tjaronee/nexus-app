@@ -1,6 +1,7 @@
 import { blocking, matchesRef, prioOf, urgentieOf } from './data/model.js';
 import { choices } from './quick-add.js';
 import { soortOf, tapSoort, soortChange } from './soort.js';
+import { parkChange } from './geparkeerd.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -75,6 +76,20 @@ export function tapSoortChip(store, ref, tapped) {
   const detail = detailOf(store.getState().issues, ref);
   if (!detail) return;
   const change = soortChange(detail.issue.labels, tapSoort(detail.soort, tapped));
+  if (change.add.length + change.remove.length > 0) store.editLabels(ref, change);
+}
+
+/**
+ * Parks the Taak until `month`, replacing any month it had, or with null
+ * makes it Niet geparkeerd. Queued, so it works offline.
+ * @param {import('./quick-add.js').Store} store
+ * @param {IssueRef} ref
+ * @param {import('./geparkeerd.js').Month | null} month
+ */
+export function parkTaak(store, ref, month) {
+  const detail = detailOf(store.getState().issues, ref);
+  if (!detail) return;
+  const change = parkChange(detail.issue.labels, month);
   if (change.add.length + change.remove.length > 0) store.editLabels(ref, change);
 }
 

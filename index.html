@@ -74,10 +74,15 @@
       <div id="taken-soorten" class="chips" role="group" aria-label="Filters op Soort" hidden></div>
       <div id="taken-groups"></div>
       <p id="taken-empty" class="placeholder" hidden></p>
-      <section id="taken-blocked" class="blocked" aria-labelledby="taken-blocked-title" hidden>
-        <h2 id="taken-blocked-title">Geblokkeerd</h2>
+      <!-- Folded, closed by default; both open while searching. -->
+      <details id="taken-blocked" class="folded" hidden>
+        <summary>Geblokkeerd <span id="taken-blocked-count" class="folded__count"></span></summary>
         <ul id="taken-blocked-list" class="taken"></ul>
-      </section>
+      </details>
+      <details id="taken-parked" class="folded" hidden>
+        <summary>Geparkeerd <span id="taken-parked-count" class="folded__count"></span></summary>
+        <ul id="taken-parked-list" class="taken"></ul>
+      </details>
       <button id="add-taak" class="fab" type="button" aria-label="Nieuwe Taak">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -214,6 +219,10 @@
           <button type="button" class="chip" data-qa-urgentie="ooit" aria-label="Urgentie ooit">ooit</button>
         </div>
         <div id="qa-soorten" class="chips" role="group" aria-label="Soort" hidden></div>
+        <div>
+          <button id="qa-park" type="button" class="small-button" popovertarget="qa-park-menu">Parkeren…</button>
+        </div>
+        <div id="qa-park-menu" class="month-menu" popover role="group" aria-label="Geparkeerd tot"></div>
         <details id="qa-more" class="more">
           <summary>meer</summary>
           <label for="qa-body">Beschrijving</label>
@@ -268,6 +277,12 @@
             <legend>Toegewezen</legend>
             <div id="d-people" class="people"></div>
           </fieldset>
+          <div class="park-field">
+            <span id="d-park-label">Geparkeerd tot</span>
+            <button id="d-park" type="button" class="small-button" popovertarget="d-park-menu"
+                    aria-labelledby="d-park-label d-park">—</button>
+          </div>
+          <div id="d-park-menu" class="month-menu" popover role="group" aria-label="Geparkeerd tot"></div>
         </div>
 
         <section class="section" aria-labelledby="d-body-title">

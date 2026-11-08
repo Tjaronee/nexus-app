@@ -1,5 +1,6 @@
 import { PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 import { SOORT_PREFIX, knownSoorten } from './soort.js';
+import { GEPARKEERD_PREFIX } from './geparkeerd.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -7,16 +8,19 @@ import { SOORT_PREFIX, knownSoorten } from './soort.js';
 /** @typedef {import('./data/model.js').Urgentie} Urgentie */
 /** @typedef {ReturnType<import('./data/store.js').createStore>} Store */
 /** @typedef {import('./taken.js').Filters} Filters */
+/** @typedef {import('./geparkeerd.js').Month} Month */
 /**
  * What the quick-add sheet has filled in. `soort` is a known Soort's name, or
- * null for none; `toegewezen` holds logins, `blockedBy` what it is
- * Geblokkeerd door and `blocks` what it Blokkeert.
+ * null for none; `geparkeerd` the month it is Geparkeerd until, or null;
+ * `toegewezen` holds logins, `blockedBy` what it is Geblokkeerd door and
+ * `blocks` what it Blokkeert.
  * @typedef {{
  *   title: string,
  *   body: string,
  *   prio: Prio,
  *   urgentie: Urgentie,
  *   soort: string | null,
+ *   geparkeerd: Month | null,
  *   toegewezen: string[],
  *   blockedBy: IssueRef[],
  *   blocks: IssueRef[],
@@ -30,6 +34,7 @@ export const DEFAULTS = {
   prio: 'middel',
   urgentie: 'binnenkort',
   soort: null,
+  geparkeerd: null,
   toegewezen: [],
   blockedBy: [],
   blocks: [],
@@ -50,7 +55,12 @@ export function saveDraft(store, draft) {
   const ref = store.create({
     title,
     body: draft.body.trim(),
-    labels: [PRIO_LABELS[draft.prio], URGENTIE_LABELS[draft.urgentie], ...(draft.soort ? [SOORT_PREFIX + draft.soort] : [])],
+    labels: [
+      PRIO_LABELS[draft.prio],
+      URGENTIE_LABELS[draft.urgentie],
+      ...(draft.soort ? [SOORT_PREFIX + draft.soort] : []),
+      ...(draft.geparkeerd ? [GEPARKEERD_PREFIX + draft.geparkeerd] : []),
+    ],
     assignees: draft.toegewezen,
   });
   for (const blocker of draft.blockedBy) store.addBlockedBy(ref, blocker);

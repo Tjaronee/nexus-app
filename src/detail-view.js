@@ -1,5 +1,7 @@
-import { detailOf, assigneeChange, editChoices, reactieBody, postReactie, tapSoortChip } from './detail.js';
+import { detailOf, assigneeChange, editChoices, reactieBody, postReactie, tapSoortChip, parkTaak } from './detail.js';
 import { soortOf } from './soort.js';
+import { monthName, parkedUntil } from './geparkeerd.js';
+import { mountMonthMenu } from './month-menu-view.js';
 import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
 import { parseMarkdown, toggleTask } from './markdown.js';
@@ -27,6 +29,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   const title = /** @type {HTMLTextAreaElement} */ ($('d-title'));
   const people = $('d-people');
   const soortChips = $('d-soorten');
+  const park = /** @type {HTMLButtonElement} */ ($('d-park'));
   const bodyView = $('d-body');
   const bodyEditor = $('d-body-editor');
   const bodyText = /** @type {HTMLTextAreaElement} */ ($('d-body-text'));
@@ -152,6 +155,15 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     });
   }
 
+  // Geparkeerd tot is saved straight away; the store change redraws the field.
+  mountMonthMenu(park, $('d-park-menu'), {
+    chosen: () => {
+      const issue = current()?.issue;
+      return issue ? parkedUntil(issue, new Date()) : null;
+    },
+    onChoose: (month) => edit((store, r) => parkTaak(store, r, month)),
+  });
+
   people.addEventListener('change', () => {
     const detail = current();
     if (!detail) return;
@@ -247,6 +259,9 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       chip.setAttribute('aria-pressed', String(dPrio ? dPrio === detail.prio : dUrgentie === detail.urgentie));
     }
     renderPickers(issue);
+    const today = new Date();
+    const until = parkedUntil(issue, today);
+    park.textContent = until ? monthName(until, today) : '—';
 
     if (bodyEditor.hidden) {
       bodyView.replaceChildren(

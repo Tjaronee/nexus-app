@@ -3,6 +3,8 @@ import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
 import { $, fillSoortChips, peopleCheckboxes } from './dom.js';
 import { tapSoort } from './soort.js';
+import { monthName } from './geparkeerd.js';
+import { mountMonthMenu } from './month-menu-view.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
 /** @typedef {import('./quick-add.js').Store} Store */
@@ -10,6 +12,7 @@ import { tapSoort } from './soort.js';
 /** @typedef {import('./blocker-picker.js').BlockerOption} BlockerOption */
 /** @typedef {import('./blocker-picker-view.js').Direction} Direction */
 /** @typedef {import('./taken.js').Filters} Filters */
+/** @typedef {import('./geparkeerd.js').Month} Month */
 
 /**
  * The + button on the Taken tab and the bottom sheet it opens.
@@ -25,9 +28,12 @@ export function mountQuickAdd({ getStore, getMe }) {
   const more = /** @type {HTMLDetailsElement} */ ($('qa-more'));
   const error = $('qa-error');
   const again = $('qa-again');
+  const park = /** @type {HTMLButtonElement} */ ($('qa-park'));
   const chips = /** @type {NodeListOf<HTMLButtonElement>} */ (dialog.querySelectorAll('[data-qa-prio], [data-qa-urgentie]'));
 
   let { prio, urgentie, soort } = DEFAULTS;
+  /** @type {Month | null} */
+  let geparkeerd = DEFAULTS.geparkeerd;
   /** The Soort a new Taak starts with, from the Taken filter. @type {string | null} */
   let filterSoort = null;
   /** @type {Choices} */
@@ -69,6 +75,13 @@ export function mountQuickAdd({ getStore, getMe }) {
   title.addEventListener('input', () => {
     error.hidden = true;
   });
+  mountMonthMenu(park, $('qa-park-menu'), {
+    chosen: () => geparkeerd,
+    onChoose(month) {
+      geparkeerd = month;
+      render();
+    },
+  });
 
   /** Saves what is filled in. False, with a message, when there is no title. */
   function save() {
@@ -87,6 +100,7 @@ export function mountQuickAdd({ getStore, getMe }) {
       prio,
       urgentie,
       soort,
+      geparkeerd,
       toegewezen: [...people.querySelectorAll('input:checked')].map((box) => /** @type {HTMLInputElement} */ (box).value),
       blockedBy: blockedBy.refs(),
       blocks: blocks.refs(),
@@ -96,14 +110,16 @@ export function mountQuickAdd({ getStore, getMe }) {
   /**
    * Empties every field except the chips, Soort included, which carry over to
    * the next one: unlike a Boodschap's Plekken, a run of Taken often shares them.
-   * The choices are fresh, and blockers are searched in the store as it is
-   * now, so a Taak just saved can block the next one.
+   * Parking doesn't carry over, so the next Taak can't vanish from the list
+   * unnoticed. The choices are fresh, and blockers are searched in the store
+   * as it is now, so a Taak just saved can block the next one.
    */
   function clear() {
     const store = getStore();
     if (store) offered = choices(store.getState(), getMe());
     title.value = '';
     body.value = '';
+    geparkeerd = null;
     error.hidden = true;
     blockedBy.clear();
     blocks.clear();
@@ -116,6 +132,7 @@ export function mountQuickAdd({ getStore, getMe }) {
       const { qaPrio, qaUrgentie } = chip.dataset;
       chip.setAttribute('aria-pressed', String(qaPrio ? qaPrio === prio : qaUrgentie === urgentie));
     }
+    park.textContent = geparkeerd ? `Geparkeerd tot ${monthName(geparkeerd, new Date())}` : 'Parkeren…';
     fillSoortChips(soortChips, offered.soorten, soort, (tapped) => {
       soort = tapSoort(soort, tapped);
       render();

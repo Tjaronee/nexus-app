@@ -1,24 +1,28 @@
 import { normalise } from './text.js';
 import { kindOf, matchesRef, prioOf, urgentieOf, PRIO_LABELS, URGENTIE_LABELS } from './data/model.js';
 import { normaliseSoort, soortOf } from './soort.js';
+import { parkedUntil } from './geparkeerd.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./data/model.js').Prio} Prio */
 /** @typedef {import('./data/model.js').Urgentie} Urgentie */
 /** @typedef {import('./soort.js').SoortKey} SoortKey */
+/** @typedef {import('./geparkeerd.js').Month} Month */
 /** @typedef {'iedereen' | 'mijn' | 'partner'} Wie */
 /** An empty Prio, Urgentie or Soort list means no filter on it. */
 /** @typedef {{ prio: Prio[], urgentie: Urgentie[], wie: Wie, soort: SoortKey[] }} Filters */
 /**
- * One Taak as the list shows it. `waitingFor` holds the open Taken it is
- * Geblokkeerd by.
+ * One Taak as the list shows it. `parkedUntil` is the month it is Geparkeerd
+ * until, or null when it isn't; `waitingFor` holds the open Taken it is
+ * Geblokkeerd by, each with the month it is Geparkeerd until.
  * @typedef {{
  *   issue: Issue,
  *   prio: Prio,
  *   urgentie: Urgentie,
  *   soort: SoortKey,
- *   waitingFor: { ref: IssueRef, title: string }[],
+ *   parkedUntil: Month | null,
+ *   waitingFor: { ref: IssueRef, title: string, parkedUntil: Month | null }[],
  * }} Row
  */
 
@@ -40,53 +44,47 @@ export function isFiltered(filters) {
 
 /**
  * The open Taken, filtered and sorted by Urgentie then Prio, with the
- * Geblokkeerd ones apart so they can go at the bottom.
+ * Geblokkeerd and the Geparkeerd ones apart so they can go at the bottom.
+ * Geparkeerd is sorted by month first, and holds every Geparkeerd Taak, also
+ * one that is Geblokkeerd.
  * @param {Issue[]} issues
- * @param {{ filters: Filters, search: string, me: string }} options `me` is the signed-in login.
- * @returns {{ free: Row[], blocked: Row[] }}
+ * @param {{ filters: Filters, search: string, me: string, today: Date }} options `me` is the signed-in login.
+ * @returns {{ free: Row[], blocked: Row[], parked: Row[] }}
  */
-export function takenList(issues, { filters, search, me }) {
+export function takenList(issues, { filters, search, me, today }) {
   const open = issues.filter((i) => i.state === 'open');
   const terms = normalise(search).split(/\s+/).filter(Boolean);
   const rows = open
     .filter((i) => kindOf(i) === 'taak')
-    .map((issue) => toRow(issue, open))
+    .map((issue) => toRow(issue, open, today))
     .filter((row) => matchesFilters(row, filters, me.toLowerCase()))
     .filter((row) => matchesSearch(row.issue, terms))
     .sort(byUrgentieThenPrio);
+  const current = rows.filter((r) => r.parkedUntil === null);
   return {
-    free: rows.filter((r) => r.waitingFor.length === 0),
-    blocked: rows.filter((r) => r.waitingFor.length > 0),
+    free: current.filter((r) => r.waitingFor.length === 0),
+    blocked: current.filter((r) => r.waitingFor.length > 0),
+    // A stable sort, so a month keeps the list's order.
+    parked: rows.filter((r) => r.parkedUntil !== null).sort((a, b) => String(a.parkedUntil).localeCompare(String(b.parkedUntil))),
   };
 }
 
-/**
- * These Taken as list rows, sorted like the Taken list, with the Geblokkeerd
- * ones last.
- * @param {Issue[]} issues all issues, to find blockers in
- * @param {Issue[]} taken
- * @returns {Row[]}
- */
-export function takenRows(issues, taken) {
-  const open = issues.filter((i) => i.state === 'open');
-  const rows = taken.map((issue) => toRow(issue, open)).sort(byUrgentieThenPrio);
-  return [...rows.filter((r) => r.waitingFor.length === 0), ...rows.filter((r) => r.waitingFor.length > 0)];
-}
-
-/** @param {Issue} issue @param {Issue[]} open @returns {Row} */
-function toRow(issue, open) {
+/** @param {Issue} issue @param {Issue[]} open @param {Date} today @returns {Row} */
+function toRow(issue, open, today) {
   return {
     issue,
     prio: prioOf(issue),
     urgentie: urgentieOf(issue),
     soort: soortOf(issue),
+    parkedUntil: parkedUntil(issue, today),
     // A blocker that is closed, or not in Nexus, no longer holds the Taak up.
     waitingFor: issue.blockedBy.flatMap((ref) => {
       const blocker = open.find((i) => matchesRef(i, ref));
-      return blocker ? [{ ref: blocker.ref, title: blocker.title }] : [];
+      return blocker ? [{ ref: blocker.ref, title: blocker.title, parkedUntil: parkedUntil(blocker, today) }] : [];
     }),
   };
 }
+
 
 /**
  * "Mijn" and "Partner" are what that person could pick up: Taken Toegewezen

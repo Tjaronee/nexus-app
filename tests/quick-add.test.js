@@ -56,6 +56,7 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
     prio: 'hoog',
     urgentie: 'nu',
     soort: null,
+    geparkeerd: null,
     toegewezen: ['tjaronee', 'partner'],
     blockedBy: [blocker.number],
     blocks: [],
@@ -72,7 +73,7 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
 
 /** @param {ReturnType<typeof createStore>} store */
 const geblokkeerd = (store) =>
-  takenList(store.getState().issues, { filters: ALL, search: '', me: 'tjaronee' }).blocked.map((r) => r.issue.title);
+  takenList(store.getState().issues, { filters: ALL, search: '', me: 'tjaronee', today: new Date() }).blocked.map((r) => r.issue.title);
 
 test('a new Taak that Blokkeert another shows on GitHub as blocking it, until the link is removed', async () => {
   const { server, store } = setup();
@@ -172,6 +173,17 @@ test('saves the chosen Soort as its soort: label, also when offline', async () =
   await store.flush();
   await store.refresh();
   assert.deepEqual(byTitle(store, 'Lamp ophangen')?.labels.sort(), ['prio: medium', 'soort: klusjes', 'urgency: soon']);
+});
+
+test('a Taak can be Geparkeerd as it is created', async () => {
+  const { store } = setup();
+  await store.refresh();
+
+  saveDraft(store, { ...DEFAULTS, title: 'Zonnepanelen', geparkeerd: '2027-02' });
+
+  await store.flush();
+  await store.refresh();
+  assert.deepEqual(byTitle(store, 'Zonnepanelen')?.labels.sort(), ['geparkeerd: 2027-02', 'prio: medium', 'urgency: soon']);
 });
 
 test('offers every known Soort as a chip, alphabetically', () => {
