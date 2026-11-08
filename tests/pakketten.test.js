@@ -28,7 +28,6 @@ function issue(over = {}) {
     stateReason: null,
     labels: ['pakket'],
     assignees: [],
-    milestone: null,
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,

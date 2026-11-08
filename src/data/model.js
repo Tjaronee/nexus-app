@@ -4,7 +4,6 @@
  */
 
 /** @typedef {{ login: string, avatarUrl: string }} Person */
-/** @typedef {{ number: number, title: string }} MilestoneRef */
 /**
  * An issue as the screens see it. `number` is null while a create is still
  * waiting to be sent; `ref` is then the client ID, and afterwards the number.
@@ -19,7 +18,6 @@
  *   stateReason: StateReason | null,
  *   labels: string[],
  *   assignees: Person[],
- *   milestone: MilestoneRef | null,
  *   blockedByCount: number,
  *   blockedBy: IssueRef[],
  *   comments: number,
@@ -86,7 +84,6 @@ export function toIssue(raw) {
     stateReason: raw.state_reason ?? null,
     labels: (raw.labels ?? []).map((/** @type {any} */ l) => (typeof l === 'string' ? l : l.name)),
     assignees: (raw.assignees ?? []).map((/** @type {any} */ a) => ({ login: a.login, avatarUrl: a.avatar_url })),
-    milestone: raw.milestone ? { number: raw.milestone.number, title: raw.milestone.title } : null,
     blockedByCount: raw.issue_dependencies_summary?.total_blocked_by ?? 0,
     blockedBy: [],
     comments: raw.comments ?? 0,

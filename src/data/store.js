@@ -8,13 +8,6 @@ import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Prio} Prio */
 /** @typedef {import('./model.js').Urgentie} Urgentie */
-/**
- * `issueCount` is GitHub's own count of the issues and pull requests that
- * have it; a Mijlpaal cached by an older version doesn't have it yet.
- * @typedef {{ number: number, title: string, state: 'open' | 'closed', description: string, dueOn: string | null, issueCount?: number }} Milestone
- */
-/** @typedef {{ title?: string, description?: string, state?: 'open' | 'closed' }} MijlpaalFields */
-/** @typedef {{ type: 'mijlpaal', action: 'create' | 'edit' | 'delete', number: number | null }} MijlpaalChange */
 /** @typedef {{ type: 'label', action: 'create' | 'edit' | 'delete', name: string }} LabelChange */
 /** A label's new name and description; what is left out stays. @typedef {{ name?: string, description?: string }} LabelFields */
 /**
@@ -22,7 +15,6 @@ import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
  * failure banner says so), or there was no connection and nothing happened.
  * @typedef {'saved' | 'refused' | 'offline'} ChangeResult
  */
-/** @typedef {ChangeResult} MijlpaalResult */
 /** @typedef {{ id: number | null, body: string, author: Person | null, createdAt: string, pending: boolean }} Comment */
 /** @typedef {import('./ops.js').Op} Op */
 /** @typedef {import('./ops.js').QueuedOp} QueuedOp */
@@ -32,7 +24,6 @@ import { apply, send, settle, isTemporary, MissingIssueError } from './ops.js';
 const REPO = `/repos/${NEXUS_OWNER}/${NEXUS_REPO}`;
 const CACHE_KEY = 'nexus.cache';
 const QUEUE_KEY = 'nexus.queue';
-const MILESTONES_PATH = `${REPO}/milestones?state=all&per_page=100`;
 const LABELS_PATH = `${REPO}/labels?per_page=100`;
 const ISSUES_PATH = `${REPO}/issues?state=all&per_page=100&sort=created&direction=asc`;
 
@@ -49,21 +40,16 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   const cache = readJson(storage, CACHE_KEY);
   /** @type {Issue[]} */
   let base = cache?.issues ?? [];
-  /** @type {Milestone[]} */
-  let milestones = cache?.milestones ?? [];
   /** @type {string[]} All label names in Nexus. */
   let labels = cache?.labels ?? [];
   /** @type {Record<string, string>} Label name → description, for the labels that have one. */
   let labelDescriptions = cache?.labelDescriptions ?? {};
   /** Last response per GET path, so unchanged data costs a free 304. */
   /** @type {Map<string, CachedResponse>} */
-  const responses = new Map(cache?.responses ?? []);
+  const responses = new Map(withoutRetiredResponses(cache?.responses ?? []));
   // Labels cached by an older version are names only, and a 304 would keep
   // them that way: fetch them in full once.
   if (cache && !cache.labelDescriptions) responses.delete(LABELS_PATH);
-  // Mijlpalen cached by an older version lack issueCount, and a 304 would
-  // keep them that way: fetch them in full once.
-  if (milestones.some((m) => m.issueCount === undefined)) responses.delete(MILESTONES_PATH);
   /** @type {QueuedOp[]} */
   let queue = withoutRetiredOps(readJson(storage, QUEUE_KEY) ?? []);
   let online = true;
@@ -80,7 +66,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   /** @type {Promise<void> | null} */
   let flushAgain = null;
   /** Changes GitHub refused, so the screen can say they didn't happen. */
-  /** @type {{ op: Op | MijlpaalChange | LabelChange, status: number }[]} */
+  /** @type {{ op: Op | LabelChange, status: number }[]} */
   let failed = [];
   /** Comments per issue number, loaded when an issue is opened. */
   /** @type {Map<number, Comment[]>} */
@@ -124,7 +110,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   function persistCache() {
     // Comments are only kept for the session; the rest is what the app opens with.
     const kept = [...responses].filter(([path]) => !path.includes('/comments'));
-    writeJson(storage, CACHE_KEY, { issues: base, milestones, labels, labelDescriptions, responses: kept });
+    writeJson(storage, CACHE_KEY, { issues: base, labels, labelDescriptions, responses: kept });
   }
 
   function persistQueue() {
@@ -293,11 +279,11 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
   }
 
   /**
-   * Sends a change to Mijlpalen or labels. Unlike issue changes these are not
-   * queued: they are rare, and the queue is built around issues. So the
-   * change happens now or not at all, and the lists only change once GitHub
-   * has it. Returns GitHub's answer when it accepted the change.
-   * @param {MijlpaalChange | LabelChange} change
+   * Sends a change to labels. Unlike issue changes these are not queued: they
+   * are rare, and the queue is built around issues. So the change happens now
+   * or not at all, and the lists only change once GitHub has it. Returns
+   * GitHub's answer when it accepted the change.
+   * @param {LabelChange} change
    * @param {string} path
    * @param {'POST' | 'PATCH' | 'DELETE'} method
    * @param {Record<string, string>} [fields]
@@ -330,32 +316,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     // must not put the old ones back.
     acceptedWrites++;
     return res;
-  }
-
-  /**
-   * Creates, edits or deletes a Mijlpaal.
-   * @param {MijlpaalChange} change
-   * @param {'POST' | 'PATCH' | 'DELETE'} method
-   * @param {Record<string, string>} [fields]
-   * @returns {Promise<ChangeResult>}
-   */
-  async function changeMijlpaal(change, method, fields) {
-    const res = await sendNow(change, `${REPO}/milestones${change.number === null ? '' : `/${change.number}`}`, method, fields);
-    if (typeof res === 'string') return res;
-    responses.delete(MILESTONES_PATH);
-    if (method === 'DELETE') {
-      milestones = milestones.filter((m) => m.number !== change.number);
-    } else {
-      // GitHub has it even if its answer breaks off; the refresh below brings it.
-      const saved = await res.json().then(toMilestone, () => null);
-      if (saved) milestones = [...milestones.filter((m) => m.number !== saved.number), saved].sort(byNumber);
-    }
-    persistCache();
-    changed();
-    // Issues show their Mijlpaal's title too, so fetch both. A refresh under
-    // way drops its answer for this change, so a new one follows it.
-    void (refreshing ?? Promise.resolve()).then(refresh);
-    return 'saved';
   }
 
   /**
@@ -432,8 +392,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
         anyChanged ||= page.changed;
         path = page.next;
       }
-      paths.push(MILESTONES_PATH);
-      const ms = await conditionalGet(MILESTONES_PATH, toMilestones);
       paths.push(LABELS_PATH);
       const ls = await conditionalGet(LABELS_PATH, toLabels);
       const fresh = anyChanged ? await withBlockers(fetched) : null;
@@ -444,13 +402,12 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
         for (const p of paths) responses.delete(p);
       } else {
         if (fresh) base = fresh;
-        milestones = ms.body;
         labels = ls.body.map((/** @type {Label} */ l) => l.name);
         labelDescriptions = Object.fromEntries(ls.body.filter((/** @type {Label} */ l) => l.description).map((/** @type {Label} */ l) => [l.name, l.description]));
       }
       refreshed = true;
       if (queue.length > 0) void flush();
-      if (anyChanged || ms.changed || ls.changed) persistCache();
+      if (anyChanged || ls.changed) persistCache();
     } catch (err) {
       // An expired token is handled by the client's onUnauthorized; a GitHub
       // hiccup just means we try again on the next refresh.
@@ -490,7 +447,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
         win.removeEventListener('offline', offline);
       };
     },
-    getState: () => ({ issues: issues(), milestones, labels, labelDescriptions, online, pending: queue.length, failed }),
+    getState: () => ({ issues: issues(), labels, labelDescriptions, online, pending: queue.length, failed }),
     dismissFailed() {
       failed = [];
       changed();
@@ -509,7 +466,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     /**
      * Creates an issue. Returns its client ID, which works as its ref until
      * (and after) GitHub gives it a number.
-     * @param {{ title: string, body?: string, labels?: string[], assignees?: string[], milestone?: number | null }} fields
+     * @param {{ title: string, body?: string, labels?: string[], assignees?: string[] }} fields
      */
     create(fields) {
       const cid = newId();
@@ -521,7 +478,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
         body: fields.body ?? '',
         labels: fields.labels ?? [],
         assignees: fields.assignees ?? [],
-        milestone: fields.milestone ?? null,
       });
       return cid;
     },
@@ -545,17 +501,7 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
     /** @param {IssueRef} ref @param {IssueRef} blocker */
     removeBlockedBy: (ref, blocker) => enqueue({ type: 'blockedBy', ref, blocker, add: false }),
     /**
-     * A new Mijlpaal. The app sets no due date (Nexus ADR 0004).
-     * @param {{ title: string, description: string }} fields
-     */
-    createMijlpaal: ({ title, description }) =>
-      changeMijlpaal({ type: 'mijlpaal', action: 'create', number: null }, 'POST', { title, description }),
-    /** Edits it; `state: 'closed'` is Afronden, `'open'` Heropenen. @param {number} number @param {MijlpaalFields} fields */
-    editMijlpaal: (number, fields) => changeMijlpaal({ type: 'mijlpaal', action: 'edit', number }, 'PATCH', fields),
-    /** Only for a Mijlpaal no issue has: GitHub would strip it from them. @param {number} number */
-    deleteMijlpaal: (number) => changeMijlpaal({ type: 'mijlpaal', action: 'delete', number }, 'DELETE'),
-    /**
-     * A new label in Nexus, such as `soort: klusjes`. Online only, like Mijlpalen.
+     * A new label in Nexus, such as `soort: klusjes`. Online only.
      * @param {string} name
      * @param {string} [description] such as a Locatie's address
      */
@@ -574,13 +520,6 @@ export function createStore({ github, storage, newId = () => crypto.randomUUID()
      * @param {string} name exactly as the label is written
      */
     deleteLabel: (name) => changeLabel({ type: 'label', action: 'delete', name }),
-    /** @param {IssueRef} ref @param {number | null} number */
-    setMilestone: (ref, number) =>
-      enqueue({
-        type: 'milestone',
-        ref,
-        milestone: number === null ? null : { number, title: milestones.find((m) => m.number === number)?.title ?? '' },
-      }),
   };
 }
 
@@ -598,22 +537,6 @@ const toComments = (raw) =>
     createdAt: c.created_at,
     pending: false,
   }));
-
-/** @param {any} m @returns {Milestone} */
-const toMilestone = (m) => ({
-  number: m.number,
-  title: m.title,
-  state: m.state,
-  description: m.description ?? '',
-  dueOn: m.due_on ?? null,
-  issueCount: (m.open_issues ?? 0) + (m.closed_issues ?? 0),
-});
-
-/** @param {any[]} raw @returns {Milestone[]} */
-const toMilestones = (raw) => raw.map(toMilestone);
-
-/** @param {Milestone} a @param {Milestone} b */
-const byNumber = (a, b) => a.number - b.number;
 
 /** @typedef {{ name: string, description: string }} Label */
 
@@ -642,13 +565,23 @@ function nextPage(link) {
 
 /**
  * Drops queued changes of a kind the app no longer makes. An older version
- * could still have a sub-issue move waiting on the device; it can't be shown
- * or sent any more, and Nexus doesn't need it (Nexus ADR 0004).
+ * could still have a sub-issue move (Nexus ADR 0004) or a Mijlpaal move
+ * (Nexus ADR 0007) waiting on the device; they can't be shown or sent any
+ * more, and Nexus doesn't need them.
  * @param {any[]} queue
  * @returns {QueuedOp[]}
  */
 function withoutRetiredOps(queue) {
-  return queue.filter((op) => op?.type !== 'parent');
+  return queue.filter((op) => op?.type !== 'parent' && op?.type !== 'milestone');
+}
+
+/**
+ * Drops the cached Mijlpalen an older version kept (Nexus ADR 0007), so they
+ * don't take up device storage.
+ * @param {[string, CachedResponse][]} responses
+ */
+function withoutRetiredResponses(responses) {
+  return responses.filter(([path]) => !path.includes('/milestones'));
 }
 
 /** @param {Storage} storage @param {string} key */

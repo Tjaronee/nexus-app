@@ -4,7 +4,7 @@ import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
 import { parseMarkdown, toggleTask } from './markdown.js';
 import { renderMarkdown } from './markdown-view.js';
-import { $, el, fillSelect, fillSoortChips, peopleCheckboxes } from './dom.js';
+import { $, el, fillSoortChips, peopleCheckboxes } from './dom.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
@@ -24,7 +24,6 @@ import { $, el, fillSelect, fillSoortChips, peopleCheckboxes } from './dom.js';
 export function mountDetail({ getStore, getMe, onAddFile }) {
   const dialog = /** @type {HTMLDialogElement} */ ($('detail'));
   const title = /** @type {HTMLTextAreaElement} */ ($('d-title'));
-  const mijlpaal = /** @type {HTMLSelectElement} */ ($('d-mijlpaal'));
   const people = $('d-people');
   const soortChips = $('d-soorten');
   const bodyView = $('d-body');
@@ -37,9 +36,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
 
   /** @type {IssueRef | null} */
   let ref = null;
-  /** What the Mijlpaal picker offered at the last redraw; its value indexes into this. */
-  /** @type {{ mijlpalen: { number: number, title: string }[] }} */
-  let offered = { mijlpalen: [] };
 
   const current = () => {
     const store = getStore();
@@ -136,10 +132,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     });
   }
 
-  mijlpaal.addEventListener('change', () => {
-    const chosen = mijlpaal.value === '' ? null : offered.mijlpalen[Number(mijlpaal.value)].number;
-    edit((store, r) => store.setMilestone(r, chosen));
-  });
   people.addEventListener('change', () => {
     const detail = current();
     if (!detail) return;
@@ -251,11 +243,6 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     const store = getStore();
     if (!store) return;
     const offer = editChoices(store.getState(), issue, getMe());
-    offered = offer;
-    if (document.activeElement !== mijlpaal) {
-      fillSelect(mijlpaal, offer.mijlpalen, 'Geen Mijlpaal');
-      mijlpaal.value = offer.mijlpaal < 0 ? '' : String(offer.mijlpaal);
-    }
     people.replaceChildren(...peopleCheckboxes(offer.people, offer.toegewezen));
     // Tapping writes straight away; the store change redraws the chips.
     fillSoortChips(soortChips, offer.soorten, soortOf(issue), (tapped) => edit((store, r) => tapSoortChip(store, r, tapped)));

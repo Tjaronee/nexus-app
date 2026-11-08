@@ -23,7 +23,6 @@ function issue(over = {}) {
     stateReason: null,
     labels: [],
     assignees: [],
-    milestone: null,
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,
@@ -89,30 +88,16 @@ test('equal Urgentie and Prio keeps the oldest first', () => {
   assert.deepEqual(titles(list).free, ['a', 'b']);
 });
 
-test('a row carries its Prio, Urgentie, assignees and Mijlpaal as breadcrumb', () => {
+test('a row carries its Prio, Urgentie and assignees', () => {
   const taak = issue({
     title: 'Dozen halen',
     labels: ['prio: high'],
-    milestone: { number: 1, title: 'Nieuw huis 2026' },
     assignees: [person('tjaronee')],
   });
   const [row] = takenList([taak], { filters: ALL, search: '', me: 'tjaronee' }).free;
   assert.equal(row.prio, 'hoog');
   assert.equal(row.urgentie, 'binnenkort');
   assert.deepEqual(row.issue.assignees, [person('tjaronee')]);
-  assert.deepEqual(row.breadcrumb, ['Nieuw huis 2026']);
-});
-
-test('the breadcrumb is empty for a Taak without a Mijlpaal', () => {
-  const list = [
-    issue({ title: 'los' }),
-    issue({ title: 'alleen mijlpaal', milestone: { number: 1, title: 'Nieuw huis 2026' } }),
-  ];
-  const rows = takenList(list, { filters: ALL, search: '', me: 'tjaronee' }).free;
-  assert.deepEqual(
-    rows.map((r) => r.breadcrumb),
-    [[], ['Nieuw huis 2026']],
-  );
 });
 
 test('filters on Prio and Urgentie, each a multi-select, combined', () => {

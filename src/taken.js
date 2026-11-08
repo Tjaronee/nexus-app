@@ -11,14 +11,13 @@ import { normaliseSoort, soortOf } from './soort.js';
 /** An empty Prio, Urgentie or Soort list means no filter on it. */
 /** @typedef {{ prio: Prio[], urgentie: Urgentie[], wie: Wie, soort: SoortKey[] }} Filters */
 /**
- * One Taak as the list shows it. `breadcrumb` is its Mijlpaal, if it has one;
- * `waitingFor` the open Taken it is Geblokkeerd by.
+ * One Taak as the list shows it. `waitingFor` holds the open Taken it is
+ * Geblokkeerd by.
  * @typedef {{
  *   issue: Issue,
  *   prio: Prio,
  *   urgentie: Urgentie,
  *   soort: SoortKey,
- *   breadcrumb: string[],
  *   waitingFor: { ref: IssueRef, title: string }[],
  * }} Row
  */
@@ -81,7 +80,6 @@ function toRow(issue, open) {
     prio: prioOf(issue),
     urgentie: urgentieOf(issue),
     soort: soortOf(issue),
-    breadcrumb: issue.milestone?.title ? [issue.milestone.title] : [],
     // A blocker that is closed, or not in Nexus, no longer holds the Taak up.
     waitingFor: issue.blockedBy.flatMap((ref) => {
       const blocker = open.find((i) => matchesRef(i, ref));

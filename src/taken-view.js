@@ -139,11 +139,10 @@ function toggle(list, value) {
  * @param {Row[]} rows
  * @param {(ref: IssueRef) => void} onOpen
  * @param {(issue: Issue) => void} onClose
- * @param {'h2' | 'h3'} [heading] h3 where the screen already has an h2 above it
  */
-export function groupElement(soort, rows, onOpen, onClose, heading = 'h2') {
+export function groupElement(soort, rows, onOpen, onClose) {
   const section = el('section', 'group soort');
-  section.append(el(heading, undefined, soort ?? GEEN_SOORT));
+  section.append(el('h2', undefined, soort ?? GEEN_SOORT));
   const list = el('ul', 'taken');
   list.append(...rows.map((row) => rowElement(row, onOpen, onClose)));
   section.append(list);
@@ -194,7 +193,6 @@ export function rowElement(row, onOpen, onClose) {
     badge(`prio-${row.prio}`, row.prio, `Prio: ${row.prio}`),
     badge(`urgentie-${row.urgentie}`, row.urgentie, `Urgentie: ${row.urgentie}`),
   );
-  if (row.breadcrumb.length > 0) meta.append(el('span', 'taak__crumb', `📁 ${row.breadcrumb.join(' · ')}`));
   li.append(meta);
 
   for (const blocker of row.waitingFor) {

@@ -118,21 +118,9 @@
       </button>
     </section>
     <section id="panel-mijlpalen" class="panel" role="tabpanel" hidden>
-      <p id="m-offline" class="notice small" hidden>Zonder verbinding kun je de indeling bekijken, maar niet aanpassen.</p>
-      <!-- Indeling: one section per way of ordering Nexus. Soorten, Plekken and Locaties follow Mijlpalen. -->
-      <div id="m-overview" class="indeling">
-        <section id="indeling-mijlpalen" class="indeling__section" aria-labelledby="m-section-title">
-          <div class="section__head">
-            <h2 id="m-section-title">Mijlpalen</h2>
-            <button id="m-add" type="button" class="link">+ Mijlpaal</button>
-          </div>
-          <ul id="m-open" class="cards"></ul>
-          <p id="m-empty" class="muted" hidden>Geen open Mijlpalen.</p>
-          <details id="m-closed" class="group" hidden>
-            <summary>Afgeronde Mijlpalen (<span id="m-closed-count"></span>)</summary>
-            <ul id="m-closed-list" class="cards"></ul>
-          </details>
-        </section>
+      <p id="indeling-offline" class="notice small" hidden>Zonder verbinding kun je de indeling bekijken, maar niet aanpassen.</p>
+      <!-- Indeling: one section per way of ordering Nexus: Soorten, Plekken and Locaties. -->
+      <div class="indeling">
         <section id="indeling-soorten" class="indeling__section" aria-labelledby="s-section-title">
           <div class="section__head">
             <h2 id="s-section-title">Soorten</h2>
@@ -158,48 +146,8 @@
           <ul id="l-list" class="locaties"></ul>
         </section>
       </div>
-      <div id="m-screen" hidden>
-        <div class="crumbbar">
-          <button id="m-back" type="button" class="back" aria-label="Terug">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
-          </button>
-          <h2 id="m-title"></h2>
-          <button id="m-edit" type="button" class="link m-edit">Bewerken</button>
-        </div>
-        <p id="m-screen-missing" class="placeholder" hidden>Deze Mijlpaal bestaat niet meer.</p>
-        <div id="m-screen-body">
-          <p id="m-afgerond" class="muted small" hidden>Afgerond</p>
-          <div id="m-description" hidden></div>
-          <div id="m-progress" class="progress"></div>
-          <div id="m-taken"></div>
-          <section id="m-blocked" class="blocked" aria-labelledby="m-blocked-title" hidden>
-            <h3 id="m-blocked-title">Geblokkeerd</h3>
-            <ul id="m-blocked-list" class="taken"></ul>
-          </section>
-          <p id="m-screen-empty" class="placeholder" hidden>Geen open Taken in deze Mijlpaal.</p>
-          <div class="m-actions">
-            <button id="m-afronden" type="button" class="secondary">Afronden</button>
-            <button id="m-heropenen" type="button" class="secondary" hidden>Heropenen</button>
-            <button id="m-delete" type="button" class="danger" hidden>Verwijderen…</button>
-          </div>
-        </div>
-      </div>
 
-      <!-- Inside the panel, unlike the other sheets: it only opens from here, while the panel shows. -->
-      <dialog id="mijlpaal-form" class="sheet" aria-labelledby="mf-heading">
-        <h2 id="mf-heading">Nieuwe Mijlpaal</h2>
-        <form id="mf-form" class="quick-add" novalidate>
-          <input id="mf-title" class="field" type="text" autocomplete="off" enterkeyhint="next"
-                 placeholder="Bijvoorbeeld Bruiloft 2027" aria-label="Naam">
-          <p id="mf-error" class="error" role="alert" hidden>Geef de Mijlpaal een naam.</p>
-          <textarea id="mf-description" class="field" rows="3" placeholder="Omschrijving (mag leeg)"
-                    aria-label="Omschrijving"></textarea>
-          <div class="actions">
-            <button id="mf-save" type="submit" class="primary">Opslaan</button>
-            <button id="mf-cancel" type="button" class="secondary">Annuleren</button>
-          </div>
-        </form>
-      </dialog>
+      <!-- Inside the panel, unlike the other sheets: they only open from here, while the panel shows. -->
       <dialog id="soort-form" class="sheet" aria-labelledby="sf-heading">
         <h2 id="sf-heading">Nieuwe Soort</h2>
         <form id="sf-form" class="quick-add" novalidate>
@@ -277,8 +225,6 @@
           <summary>meer</summary>
           <label for="qa-body">Beschrijving</label>
           <textarea id="qa-body" class="field" rows="3"></textarea>
-          <label for="qa-mijlpaal">Mijlpaal</label>
-          <select id="qa-mijlpaal" class="field"></select>
           <fieldset>
             <legend>Toegewezen</legend>
             <div id="qa-people" class="people"></div>
@@ -325,8 +271,6 @@
         </div>
         <div id="d-soorten" class="chips" role="group" aria-label="Soort" hidden></div>
         <div class="fields">
-          <label for="d-mijlpaal">Mijlpaal</label>
-          <select id="d-mijlpaal" class="field"></select>
           <fieldset>
             <legend>Toegewezen</legend>
             <div id="d-people" class="people"></div>
