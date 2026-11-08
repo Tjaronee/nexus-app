@@ -23,6 +23,7 @@ import { $, el, fillSoortChips, peopleCheckboxes } from './dom.js';
  */
 export function mountDetail({ getStore, getMe, onAddFile }) {
   const dialog = /** @type {HTMLDialogElement} */ ($('detail'));
+  const heading = $('d-heading');
   const title = /** @type {HTMLTextAreaElement} */ ($('d-title'));
   const people = $('d-people');
   const soortChips = $('d-soorten');
@@ -36,6 +37,11 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
 
   /** @type {IssueRef | null} */
   let ref = null;
+  /**
+   * Set while the copy button shows how copying went, so a redraw leaves that alone.
+   * @type {ReturnType<typeof setTimeout> | undefined}
+   */
+  let copyFeedbackTimer;
 
   const current = () => {
     const store = getStore();
@@ -77,7 +83,8 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     bodyView.hidden = false;
     blockers.close();
     blocks.close();
-    copy.textContent = 'Kopieer';
+    clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = undefined;
     if (!dialog.open) dialog.showModal();
     // The title is not focused, so the keyboard doesn't cover the screen.
     title.blur();
@@ -91,13 +98,23 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
   copy.addEventListener('click', async () => {
     const number = current()?.issue.number;
     if (!number) return;
+    const copiedFrom = ref;
+    /** @type {string} */
+    let result;
     try {
       await navigator.clipboard.writeText(`#${number}`);
-      copy.textContent = 'Gekopieerd';
+      result = 'Gekopieerd';
     } catch {
-      copy.textContent = 'Lukt niet';
+      result = 'Lukt niet';
     }
-    setTimeout(() => (copy.textContent = 'Kopieer'), 1500);
+    // Another Taak opened meanwhile: its button keeps its own label.
+    if (ref !== copiedFrom) return;
+    copy.textContent = result;
+    clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = setTimeout(() => {
+      copyFeedbackTimer = undefined;
+      render();
+    }, 1500);
   });
 
   $('d-reopen').addEventListener('click', () => edit((store, r) => store.reopen(r)));
@@ -112,7 +129,10 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       title.blur();
     }
   });
-  title.addEventListener('input', () => fitHeight(title));
+  title.addEventListener('input', () => {
+    fitHeight(title);
+    showHeading();
+  });
   title.addEventListener('change', () => {
     const text = title.value.replace(/\s+/g, ' ').trim();
     const detail = current();
@@ -206,9 +226,14 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     const detail = current();
     $('d-missing').hidden = detail !== null;
     $('d-content').hidden = detail === null;
-    $('d-number').textContent = detail?.issue.number ? `#${detail.issue.number}` : 'Nog niet op GitHub';
-    copy.hidden = !detail?.issue.number;
-    if (!detail) return;
+    // The copy button is for naming a Kennisbank file, so only a Taak on GitHub has one.
+    const number = detail?.issue.number;
+    copy.hidden = !number;
+    if (number && !copyFeedbackTimer) copy.textContent = `Kopieer #${number}`;
+    if (!detail) {
+      heading.textContent = 'Taak';
+      return;
+    }
     const { issue } = detail;
 
     $('d-closed').hidden = issue.state === 'open';
@@ -216,6 +241,7 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
       title.value = issue.title;
       fitHeight(title);
     }
+    showHeading();
     for (const chip of chips) {
       const { dPrio, dUrgentie } = chip.dataset;
       chip.setAttribute('aria-pressed', String(dPrio ? dPrio === detail.prio : dUrgentie === detail.urgentie));
@@ -238,6 +264,14 @@ export function mountDetail({ getStore, getMe, onAddFile }) {
     $('d-no-comments').hidden = comments.length > 0;
   }
 
+  /**
+   * The bar shows the title as it is being typed; while the field is empty it
+   * keeps the saved one, as leaving the field empty puts that back.
+   */
+  function showHeading() {
+    heading.textContent = title.value.trim() || current()?.issue.title || 'Taak';
+  }
+
   /** @param {Issue} issue */
   function renderPickers(issue) {
     const store = getStore();
@@ -257,7 +291,7 @@ function commentItem(comment) {
   const head = el('div', 'comment__head');
   head.append(
     el('span', 'comment__author', comment.author?.login ?? 'Jij'),
-    el('span', 'muted', comment.pending ? ' · wordt verstuurd' : ` · ${formatDate(comment.createdAt)}`),
+    el('span', 'muted', comment.pending ? ' Â· wordt verstuurd' : ` Â· ${formatDate(comment.createdAt)}`),
   );
   li.append(head, renderMarkdown(parseMarkdown(comment.body), null));
   return li;

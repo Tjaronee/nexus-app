@@ -11,8 +11,7 @@ const SNACKBAR_MS = 5000;
  * for a few seconds to undo it or to add its Kennisbank file. Closing
  * another Taak meanwhile replaces the snackbar. Removing a Boodschap and
  * marking a Pakket Binnen or Weg work the same way, without the file.
- * Ticking a Boodschap uses the same snackbar only to offer + Pakket, as
- * unticking it In het mandje already undoes the tick.
+ * Ticking a Boodschap does too, and offers + Pakket instead of the file.
  * @param {{ getStore: () => Store | null, onAddFile: (ref: IssueRef) => void, onNewPakket: (wat: string) => void }} deps
  *   `onNewPakket` opens the sheet for a new Pakket with Wat filled in.
  */
@@ -66,37 +65,33 @@ export function mountClosing({ getStore, onAddFile, onNewPakket }) {
    * @param {Issue} issue
    * @param {'completed' | 'not_planned'} reason
    * @param {string} text
-   * @param {boolean} offerFile
+   * @param {{ file?: boolean, pakket?: boolean }} [offer]
    */
-  function closeWithUndo(issue, reason, text, offerFile) {
+  function closeWithUndo(issue, reason, text, { file = false, pakket = false } = {}) {
     const store = getStore();
     if (!store) return;
     store.close(issue.ref, reason);
-    bought = null;
     closed = issue.ref;
+    bought = pakket ? issue.title : null;
     // A Kennisbank file belongs to a Taak that got done, not to a Boodschap or Pakket.
-    show(text, { undo: true, file: offerFile });
+    show(text, { undo: true, file, pakket });
   }
 
   return {
     /** Closes the Taak as completed and offers to undo it. @param {Issue} issue */
-    close: (issue) => closeWithUndo(issue, 'completed', `Afgerond: ${issue.title}`, true),
+    close: (issue) => closeWithUndo(issue, 'completed', `Afgerond: ${issue.title}`, { file: true }),
     /** Removes a Boodschap that is no longer needed, and offers to undo it. @param {Issue} issue */
-    remove: (issue) => closeWithUndo(issue, 'not_planned', `Verwijderd: ${issue.title}`, false),
+    remove: (issue) => closeWithUndo(issue, 'not_planned', `Verwijderd: ${issue.title}`),
     /** Marks a Pakket Binnen (closed as completed), and offers to undo it. @param {Issue} issue */
-    binnen: (issue) => closeWithUndo(issue, 'completed', `Binnen: ${issue.title}`, false),
+    binnen: (issue) => closeWithUndo(issue, 'completed', `Binnen: ${issue.title}`),
     /** Marks a Pakket Weg, as it won't come (closed as not planned), and offers to undo it. @param {Issue} issue */
-    weg: (issue) => closeWithUndo(issue, 'not_planned', `Weg: ${issue.title}`, false),
+    weg: (issue) => closeWithUndo(issue, 'not_planned', `Weg: ${issue.title}`),
     /**
-     * After a Boodschap was ticked, offers to add it as a Pakket, in case it
-     * was ordered online. It was ticked already; this only shows the snackbar.
+     * Ticks a Boodschap (closed as completed), and offers to undo it or to add
+     * it as a Pakket, in case it was ordered online.
      * @param {Issue} issue
      */
-    ticked: (issue) => {
-      closed = null;
-      bought = issue.title;
-      show(`Gekocht: ${issue.title}`, { pakket: true });
-    },
+    tick: (issue) => closeWithUndo(issue, 'completed', `Gekocht: ${issue.title}`, { pakket: true }),
     hide,
   };
 }

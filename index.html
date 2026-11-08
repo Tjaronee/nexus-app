@@ -86,13 +86,6 @@
       <div id="b-chips" class="chips chips--first" role="group" aria-label="Plekken"></div>
       <div id="b-groups"></div>
       <p id="b-empty" class="placeholder" hidden></p>
-      <section id="b-mandje" class="group mandje" aria-labelledby="b-mandje-title" hidden>
-        <div class="section__head">
-          <h2 id="b-mandje-title">In het mandje</h2>
-          <button id="b-clear" type="button" class="link">Leegmaken</button>
-        </div>
-        <ul id="b-mandje-list" class="boodschappen"></ul>
-      </section>
       <form id="ba-form" class="add-bar" novalidate>
         <ul id="ba-suggestions" class="suggestions"></ul>
         <p id="ba-status" class="add-bar__status" role="status" hidden></p>
@@ -245,12 +238,12 @@
       </form>
     </dialog>
 
-    <dialog id="detail" class="page" aria-labelledby="d-number">
+    <dialog id="detail" class="page" aria-labelledby="d-heading">
       <header class="page__bar">
         <button id="d-back" type="button" class="back" aria-label="Terug">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
         </button>
-        <h2 id="d-number" class="number"></h2>
+        <h2 id="d-heading" class="page__title"></h2>
         <button id="d-copy" type="button" class="small-button">Kopieer</button>
       </header>
       <div id="d-missing" class="placeholder" hidden>Deze Taak bestaat niet meer.</div>
