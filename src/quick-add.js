@@ -5,7 +5,6 @@ import { SOORT_PREFIX, knownSoorten } from './soort.js';
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
 /** @typedef {import('./data/model.js').Prio} Prio */
 /** @typedef {import('./data/model.js').Urgentie} Urgentie */
-/** @typedef {import('./data/store.js').Milestone} Milestone */
 /** @typedef {ReturnType<import('./data/store.js').createStore>} Store */
 /** @typedef {import('./taken.js').Filters} Filters */
 /**
@@ -18,7 +17,6 @@ import { SOORT_PREFIX, knownSoorten } from './soort.js';
  *   prio: Prio,
  *   urgentie: Urgentie,
  *   soort: string | null,
- *   mijlpaal: number | null,
  *   toegewezen: string[],
  *   blockedBy: IssueRef[],
  *   blocks: IssueRef[],
@@ -32,7 +30,6 @@ export const DEFAULTS = {
   prio: 'middel',
   urgentie: 'binnenkort',
   soort: null,
-  mijlpaal: null,
   toegewezen: [],
   blockedBy: [],
   blocks: [],
@@ -53,7 +50,6 @@ export function saveDraft(store, draft) {
   const ref = store.create({
     title,
     body: draft.body.trim(),
-    milestone: draft.mijlpaal,
     labels: [PRIO_LABELS[draft.prio], URGENTIE_LABELS[draft.urgentie], ...(draft.soort ? [SOORT_PREFIX + draft.soort] : [])],
     assignees: draft.toegewezen,
   });
@@ -76,12 +72,12 @@ export function soortFromFilter(filters) {
 
 /**
  * What the sheet offers: every known Soort as a chip, and in the "meer"
- * section open Mijlpalen by name and who a Taak can be Toegewezen to. That
- * is me, then everyone who has been Toegewezen in Nexus before.
- * @param {{ issues: Issue[], milestones: Milestone[], labels?: string[] }} state `labels` all label names in Nexus
+ * section who a Taak can be Toegewezen to. That is me, then everyone who
+ * has been Toegewezen in Nexus before.
+ * @param {{ issues: Issue[], labels?: string[] }} state `labels` all label names in Nexus
  * @param {string} me the signed-in login
  */
-export function choices({ issues, milestones, labels = [] }, me) {
+export function choices({ issues, labels = [] }, me) {
   /** @type {string[]} */
   const people = me ? [me] : [];
   for (const { login } of issues.flatMap((i) => i.assignees)) {
@@ -89,11 +85,7 @@ export function choices({ issues, milestones, labels = [] }, me) {
   }
 
   return {
-    mijlpalen: milestones.filter((m) => m.state === 'open').map((m) => ({ number: m.number, title: m.title })).sort(byTitle),
     people,
     soorten: knownSoorten(labels, issues),
   };
 }
-
-/** @param {{ title: string }} a @param {{ title: string }} b */
-const byTitle = (a, b) => a.title.localeCompare(b.title, 'nl');

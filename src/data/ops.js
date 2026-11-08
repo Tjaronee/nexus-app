@@ -11,7 +11,7 @@ import { withCid, matchesRef, avatarOf } from './model.js';
 /**
  * @typedef {{
  *   type: 'create', cid: string, at: string,
- *   title: string, body: string, labels: string[], assignees: string[], milestone: number | null,
+ *   title: string, body: string, labels: string[], assignees: string[],
  * }} CreateOp
  */
 /**
@@ -21,14 +21,12 @@ import { withCid, matchesRef, avatarOf } from './model.js';
  *   | { type: 'state', ref: IssueRef, state: 'open' | 'closed', reason: StateReason }
  *   | { type: 'labels', ref: IssueRef, add: string[], remove: string[] }
  *   | { type: 'assignees', ref: IssueRef, add: Person[], remove: string[] }
- *   | { type: 'milestone', ref: IssueRef, milestone: MilestoneRef | null }
  *   | { type: 'blockedBy', ref: IssueRef, blocker: IssueRef, add: boolean }
  *   | { type: 'comment', ref: IssueRef, body: string, at: string, cid: string }
  * )} Op
  */
 /** @typedef {import('./model.js').StateReason} StateReason */
 /** @typedef {import('./model.js').Person} Person */
-/** @typedef {import('./model.js').MilestoneRef} MilestoneRef */
 /** An operation waiting to be sent; `attempted` once a try may have reached GitHub. */
 /** @typedef {Op & { attempted?: boolean }} QueuedOp */
 
@@ -68,8 +66,6 @@ export function apply(issues, op) {
           ...op.add,
         ],
       }));
-    case 'milestone':
-      return patch(issues, op.ref, (i) => ({ ...i, milestone: op.milestone }));
     case 'blockedBy': {
       // The blocker may be listed by number and named by client ID, or the other way round.
       const blocker = find(issues, op.blocker);
@@ -102,7 +98,6 @@ function placeholder(op) {
     stateReason: null,
     labels: op.labels,
     assignees: op.assignees.map((login) => ({ login, avatarUrl: avatarOf(login) })),
-    milestone: op.milestone === null ? null : { number: op.milestone, title: '' },
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,
@@ -153,7 +148,6 @@ export async function send(op, ctx) {
         body: withCid(op.body, op.cid),
         labels: op.labels,
         assignees: op.assignees,
-        ...(op.milestone !== null && { milestone: op.milestone }),
       });
       return json(res);
     }
@@ -185,10 +179,6 @@ export async function send(op, ctx) {
       if (op.remove.length > 0) await call(ctx, 'DELETE', `/issues/${issue.number}/assignees`, { assignees: op.remove });
       if (op.add.length > 0) await call(ctx, 'POST', `/issues/${issue.number}/assignees`, { assignees: op.add.map((p) => p.login) });
       return null;
-    }
-    case 'milestone': {
-      const issue = target(ctx, op.ref);
-      return json(await call(ctx, 'PATCH', `/issues/${issue.number}`, { milestone: op.milestone?.number ?? null }));
     }
     case 'blockedBy': {
       const issue = target(ctx, op.ref);

@@ -1,7 +1,7 @@
 import { saveDraft, choices, soortFromFilter, DEFAULTS } from './quick-add.js';
 import { blockerOptions } from './blocker-picker.js';
 import { mountBlockerPicker } from './blocker-picker-view.js';
-import { $, fillSelect, fillSoortChips, peopleCheckboxes } from './dom.js';
+import { $, fillSoortChips, peopleCheckboxes } from './dom.js';
 import { tapSoort } from './soort.js';
 
 /** @typedef {import('./quick-add.js').Draft} Draft */
@@ -20,7 +20,6 @@ export function mountQuickAdd({ getStore, getMe }) {
   const form = /** @type {HTMLFormElement} */ ($('quick-add-form'));
   const title = /** @type {HTMLInputElement} */ ($('qa-title'));
   const body = /** @type {HTMLTextAreaElement} */ ($('qa-body'));
-  const mijlpaal = /** @type {HTMLSelectElement} */ ($('qa-mijlpaal'));
   const people = $('qa-people');
   const soortChips = $('qa-soorten');
   const more = /** @type {HTMLDetailsElement} */ ($('qa-more'));
@@ -32,7 +31,7 @@ export function mountQuickAdd({ getStore, getMe }) {
   /** The Soort a new Taak starts with, from the Taken filter. @type {string | null} */
   let filterSoort = null;
   /** @type {Choices} */
-  let offered = { mijlpalen: [], people: [], soorten: [] };
+  let offered = { people: [], soorten: [] };
   const blockedBy = linkPicker('qa-blockers', 'geblokkeerd door');
   const blocks = linkPicker('qa-blocks', 'blokkeert');
 
@@ -88,7 +87,6 @@ export function mountQuickAdd({ getStore, getMe }) {
       prio,
       urgentie,
       soort,
-      mijlpaal: mijlpaal.value === '' ? null : offered.mijlpalen[Number(mijlpaal.value)].number,
       toegewezen: [...people.querySelectorAll('input:checked')].map((box) => /** @type {HTMLInputElement} */ (box).value),
       blockedBy: blockedBy.refs(),
       blocks: blocks.refs(),
@@ -107,7 +105,6 @@ export function mountQuickAdd({ getStore, getMe }) {
     title.value = '';
     body.value = '';
     error.hidden = true;
-    fillSelect(mijlpaal, offered.mijlpalen, 'Geen Mijlpaal');
     blockedBy.clear();
     blocks.clear();
     people.replaceChildren(...peopleCheckboxes(offered.people));

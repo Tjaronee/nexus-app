@@ -5,7 +5,6 @@ import { createGitHub } from './github.js';
 import { createSession } from './session.js';
 import { TABS, MORE_TABS, ALL_TABS, LAST_TAB_KEY, initialTab } from './tabs.js';
 import { mountTaken } from './taken-view.js';
-import { mountMijlpalen } from './mijlpalen-view.js';
 import { mountSoorten } from './soorten-view.js';
 import { mountPlekken } from './plekken-view.js';
 import { mountLocaties } from './locaties-view.js';
@@ -51,7 +50,6 @@ const closing = mountClosing({ getStore: () => store, onAddFile: kennisbank.addF
 const detail = mountDetail({ getStore: () => store, getMe, onAddFile: kennisbank.addFile });
 const quickAdd = mountQuickAdd({ getStore: () => store, getMe });
 const taken = mountTaken({ storage, onOpen: detail.open, onClose: closing.close, onFilter: quickAdd.setFilter });
-const mijlpalen = mountMijlpalen({ getStore: () => store, onOpen: detail.open, onClose: closing.close });
 const soorten = mountSoorten({ getStore: () => store });
 const plekken = mountPlekken({ getStore: () => store });
 const locaties = mountLocaties({ getStore: () => store });
@@ -86,7 +84,7 @@ function render() {
     const notice = $('login-notice');
     notice.textContent = EXPIRED_NOTICE;
     notice.hidden = !expired;
-    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'pakket', 'mijlpaal-form', 'soort-form', 'locatie-form']) {
+    for (const id of ['settings', 'quick-add', 'detail', 'kennisbank', 'boodschap', 'pakket', 'soort-form', 'locatie-form']) {
       const dialog = /** @type {HTMLDialogElement} */ ($(id));
       if (dialog.open) dialog.close();
     }
@@ -116,11 +114,13 @@ function connect() {
 
 function renderLists() {
   const state = store?.getState();
+  const online = state?.online ?? true;
   taken.update(state?.issues ?? [], getMe(), state?.labels ?? []);
-  mijlpalen.update(state?.issues ?? [], state?.milestones ?? [], state?.online ?? true);
-  soorten.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
-  plekken.update(state?.issues ?? [], state?.labels ?? [], state?.online ?? true);
-  locaties.update(state?.labels ?? [], state?.labelDescriptions ?? {}, state?.online ?? true);
+  // Indeling's sections each lock their own buttons; the notice above them is shared.
+  $('indeling-offline').hidden = online;
+  soorten.update(state?.issues ?? [], state?.labels ?? [], online);
+  plekken.update(state?.issues ?? [], state?.labels ?? [], online);
+  locaties.update(state?.labels ?? [], state?.labelDescriptions ?? {}, online);
   boodschappen.render();
   boodschapAdd.render();
   pakketten.update(state?.issues ?? [], savedLocaties(state?.labels ?? [], state?.labelDescriptions ?? {}));

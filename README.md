@@ -10,7 +10,7 @@ Live at: https://tjaronee.github.io/nexus-app/
 
 The domain language and the architectural decisions are kept in Nexus:
 
-- [CONTEXT.md](https://github.com/Tjaronee/Nexus/blob/main/CONTEXT.md): glossary (Taak, Soort, Mijlpaal, Boodschap, Plek, Pakket, Locatie, …)
+- [CONTEXT.md](https://github.com/Tjaronee/Nexus/blob/main/CONTEXT.md): glossary (Taak, Soort, Boodschap, Plek, Pakket, Locatie, …)
 - [ADRs](https://github.com/Tjaronee/Nexus/tree/main/docs/adr)
 
 The v1 scope is tracked as issues in this repo.

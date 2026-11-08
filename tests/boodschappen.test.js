@@ -24,7 +24,6 @@ function issue(over = {}) {
     stateReason: null,
     labels: ['boodschappen'],
     assignees: [],
-    milestone: null,
     blockedByCount: 0,
     blockedBy: [],
     comments: 0,

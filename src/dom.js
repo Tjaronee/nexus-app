@@ -28,18 +28,6 @@ export function peopleCheckboxes(logins, checked = []) {
 }
 
 /**
- * Replaces a select's options; each value is the index into `items`.
- * @param {HTMLSelectElement} select
- * @param {{ title: string }[]} items
- * @param {string | null} none label of the empty choice, if there is one
- */
-export function fillSelect(select, items, none) {
-  const options = items.map((item, i) => new Option(item.title, String(i)));
-  if (none !== null) options.unshift(new Option(none, ''));
-  select.replaceChildren(...options);
-}
-
-/**
  * Fills a row with one single-select chip per Soort, `chosen` pressed; there
  * is no chip to type a new one. Without any Soort the row is hidden.
  * @param {HTMLElement} row

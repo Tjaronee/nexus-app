@@ -32,7 +32,6 @@ test('a Taak with only a title gets middel / binnenkort and nothing else', async
   assert.equal(typeof saved?.number, 'number');
   assert.deepEqual(saved?.labels.sort(), ['prio: medium', 'urgency: soon']);
   assert.deepEqual(saved?.assignees, []);
-  assert.equal(saved?.milestone, null);
   assert.equal(saved?.body, '');
 });
 
@@ -57,7 +56,6 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
     prio: 'hoog',
     urgentie: 'nu',
     soort: null,
-    mijlpaal: 1,
     toegewezen: ['tjaronee', 'partner'],
     blockedBy: [blocker.number],
     blocks: [],
@@ -69,7 +67,6 @@ test('saves the chosen Prio, Urgentie and everything under "meer"', async () => 
   assert.equal(saved?.body, 'Met de schroevendraaier van de buren');
   assert.deepEqual(saved?.labels.sort(), ['prio: high', 'urgency: now']);
   assert.deepEqual(saved?.assignees.map((a) => a.login), ['tjaronee', 'partner']);
-  assert.deepEqual(saved?.milestone, { number: 1, title: 'Nieuw huis 2026' });
   assert.deepEqual(saved?.blockedBy, [blocker.number]);
 });
 
@@ -118,7 +115,7 @@ function issue(over) {
   const number = over.number ?? 1;
   return {
     ref: number, number, id: number, cid: null, title: '', body: '', state: 'open', stateReason: null,
-    labels: [], assignees: [], milestone: null,
+    labels: [], assignees: [],
     blockedByCount: 0, blockedBy: [], comments: 0, createdAt: '', updatedAt: '', closedAt: null,
     ...over,
   };
@@ -127,26 +124,14 @@ function issue(over) {
 /** @param {string} login */
 const person = (login) => ({ login, avatarUrl: '' });
 
-test('offers the open Mijlpalen to choose from, by name', () => {
-  const milestones = [
-    { number: 3, title: 'Verhuizen', state: /** @type {const} */ ('open'), description: '', dueOn: null },
-    { number: 1, title: 'Nieuw huis 2026', state: /** @type {const} */ ('open'), description: '', dueOn: null },
-    { number: 2, title: 'Bruiloft', state: /** @type {const} */ ('closed'), description: '', dueOn: null },
-  ];
-
-  const c = choices({ issues: [], milestones }, 'tjaronee');
-
-  assert.deepEqual(c.mijlpalen, [{ number: 1, title: 'Nieuw huis 2026' }, { number: 3, title: 'Verhuizen' }]);
-});
-
 test('offers me first, then everyone who has been Toegewezen before', () => {
   const issues = [
     issue({ number: 1, assignees: [person('partner')], state: 'closed' }),
     issue({ number: 2, assignees: [person('Tjaronee'), person('partner')] }),
   ];
-  assert.deepEqual(choices({ issues, milestones: [] }, 'tjaronee').people, ['tjaronee', 'partner']);
-  assert.deepEqual(choices({ issues, milestones: [] }, 'partner').people, ['partner', 'Tjaronee']);
-  assert.deepEqual(choices({ issues, milestones: [] }, '').people, ['partner', 'Tjaronee']);
+  assert.deepEqual(choices({ issues }, 'tjaronee').people, ['tjaronee', 'partner']);
+  assert.deepEqual(choices({ issues }, 'partner').people, ['partner', 'Tjaronee']);
+  assert.deepEqual(choices({ issues }, '').people, ['partner', 'Tjaronee']);
 });
 
 // Soort
@@ -190,6 +175,6 @@ test('saves the chosen Soort as its soort: label, also when offline', async () =
 });
 
 test('offers every known Soort as a chip, alphabetically', () => {
-  const c = choices({ issues: [], milestones: [], labels: ['soort: sociaal', 'prio: high', 'soort: Klusjes'] }, 'tjaronee');
+  const c = choices({ issues: [], labels: ['soort: sociaal', 'prio: high', 'soort: Klusjes'] }, 'tjaronee');
   assert.deepEqual(c.soorten, ['klusjes', 'sociaal']);
 });

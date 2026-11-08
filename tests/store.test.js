@@ -273,182 +273,6 @@ test('Toegewezen: assigning and unassigning', async () => {
   assert.deepEqual(server.byNumber(1).assignees.map((/** @type {any} */ a) => a.login), ['tjaronee']);
 });
 
-test('moving a Taak to a Mijlpaal and out again', async () => {
-  const server = createFakeGitHub();
-  server.addIssue();
-  const { store } = setup({ server });
-  await store.refresh();
-
-  store.setMilestone(1, 1);
-  assert.deepEqual(issue(store, 1)?.milestone, { number: 1, title: 'Nieuw huis 2026' });
-  await store.flush();
-  assert.equal(server.byNumber(1).milestone?.number, 1);
-
-  store.setMilestone(1, null);
-  await store.flush();
-  assert.equal(server.byNumber(1).milestone, null);
-});
-
-/** @param {ReturnType<typeof createStore>} store @param {string} title */
-const mijlpaal = (store, title) => store.getState().milestones.find((m) => m.title === title);
-
-test('creating a Mijlpaal: straight to GitHub, without a due date', async () => {
-  const server = createFakeGitHub();
-  const { store } = setup({ server });
-  await store.refresh();
-
-  const result = await store.createMijlpaal({ title: 'Bruiloft 2027', description: 'Het feest' });
-
-  assert.equal(result, 'saved');
-  const created = server.milestones.find((m) => m.title === 'Bruiloft 2027');
-  assert.equal(created?.description, 'Het feest');
-  assert.equal(created?.due_on, null);
-  assert.equal(mijlpaal(store, 'Bruiloft 2027')?.state, 'open');
-  assert.equal(store.getState().pending, 0);
-});
-
-test('closing a Mijlpaal keeps its Taken; reopening brings it back', async () => {
-  const server = createFakeGitHub();
-  server.addIssue({ milestone: server.milestones[0] });
-  const { store } = setup({ server });
-  await store.refresh();
-
-  assert.equal(await store.editMijlpaal(1, { state: 'closed' }), 'saved');
-  assert.equal(server.milestones[0].state, 'closed');
-  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.state, 'closed');
-  await store.refresh();
-  assert.equal(issue(store, 1)?.milestone?.number, 1);
-
-  assert.equal(await store.editMijlpaal(1, { state: 'open' }), 'saved');
-  assert.equal(server.milestones[0].state, 'open');
-  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.state, 'open');
-});
-
-test('editing the title and description of a Mijlpaal', async () => {
-  const server = createFakeGitHub();
-  const { store } = setup({ server });
-  await store.refresh();
-
-  await store.editMijlpaal(1, { title: 'Nieuw huis 2027', description: 'Uitgesteld' });
-
-  assert.equal(server.milestones[0].title, 'Nieuw huis 2027');
-  assert.equal(mijlpaal(store, 'Nieuw huis 2027')?.description, 'Uitgesteld');
-});
-
-test('deleting a Mijlpaal', async () => {
-  const server = createFakeGitHub();
-  server.addMilestone('Weg ermee');
-  const { store } = setup({ server });
-  await store.refresh();
-
-  assert.equal(await store.deleteMijlpaal(2), 'saved');
-
-  assert.deepEqual(server.milestones.map((m) => m.title), ['Nieuw huis 2026']);
-  assert.equal(mijlpaal(store, 'Weg ermee'), undefined);
-});
-
-test('a Mijlpaal GitHub refuses is reported and the list stays as it was', async () => {
-  const server = createFakeGitHub();
-  server.addMilestone('Bruiloft 2027');
-  const { store } = setup({ server });
-  await store.refresh();
-  const before = store.getState().milestones;
-
-  assert.equal(await store.createMijlpaal({ title: 'Bruiloft 2027', description: '' }), 'refused');
-  assert.equal(await store.editMijlpaal(2, { title: 'Nieuw huis 2026' }), 'refused');
-
-  assert.deepEqual(store.getState().milestones, before);
-  assert.equal(store.getState().failed.length, 2);
-  assert.equal(server.milestones.length, 2);
-});
-
-test('managing Mijlpalen is online only: nothing is queued without a connection', async () => {
-  const server = createFakeGitHub();
-  const { store } = setup({ server });
-  await store.refresh();
-  server.state.offline = true;
-
-  assert.equal(await store.createMijlpaal({ title: 'Bruiloft 2027', description: '' }), 'offline');
-  assert.equal(await store.editMijlpaal(1, { state: 'closed' }), 'offline');
-
-  const state = store.getState();
-  assert.equal(state.online, false);
-  assert.equal(state.pending, 0);
-  assert.equal(state.failed.length, 0);
-  server.state.offline = false;
-  await store.flush();
-  await store.refresh();
-  assert.deepEqual(server.milestones.map((m) => [m.title, m.state]), [['Nieuw huis 2026', 'open']]);
-});
-
-test('a refused delete leaves the Mijlpaal', async () => {
-  const server = createFakeGitHub();
-  const { store } = setup({ server });
-  await store.refresh();
-
-  assert.equal(await store.deleteMijlpaal(99), 'refused');
-
-  assert.equal(store.getState().failed.length, 1);
-  assert.deepEqual(store.getState().milestones.map((m) => m.number), [1]);
-});
-
-test('a Mijlpaal knows how many issues GitHub counts in it, pull requests too', async () => {
-  const server = createFakeGitHub();
-  server.addIssue({ milestone: server.milestones[0], state: 'closed' });
-  server.addPullRequest('chore').milestone = server.milestones[0];
-  const { store } = setup({ server });
-  await store.refresh();
-
-  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.issueCount, 2);
-});
-
-test('Mijlpalen cached by an older version are fetched in full once, for their issue count', async () => {
-  const server = createFakeGitHub();
-  server.addIssue({ milestone: server.milestones[0] });
-  const storage = memoryStorage();
-  await setup({ server, storage }).store.refresh();
-  // As an older version kept them: without issueCount, also in the cached response.
-  const cache = JSON.parse(storage.getItem('nexus.cache') ?? '{}');
-  const strip = (/** @type {any[]} */ list) => list.map(({ issueCount, ...m }) => m);
-  cache.milestones = strip(cache.milestones);
-  for (const [path, entry] of cache.responses) if (path.includes('/milestones')) entry.body = strip(entry.body);
-  storage.setItem('nexus.cache', JSON.stringify(cache));
-
-  const { store } = setup({ server, storage });
-  await store.refresh();
-
-  assert.equal(mijlpaal(store, 'Nieuw huis 2026')?.issueCount, 1);
-});
-
-test('a refresh that overlaps a Mijlpaal change does not undo it on screen', async () => {
-  const server = createFakeGitHub();
-  const { store } = setup({ server });
-  await store.refresh();
-
-  const refreshing = store.refresh();
-  await store.createMijlpaal({ title: 'Bruiloft 2027', description: '' });
-  await refreshing;
-  assert.ok(mijlpaal(store, 'Bruiloft 2027'));
-
-  await store.refresh();
-  assert.ok(mijlpaal(store, 'Bruiloft 2027'));
-});
-
-test('a renamed Mijlpaal reaches its Taken, also when a refresh overlapped the rename', async () => {
-  const server = createFakeGitHub();
-  server.addIssue({ milestone: server.milestones[0] });
-  const { store } = setup({ server });
-  await store.refresh();
-
-  const refreshing = store.refresh();
-  await store.editMijlpaal(1, { title: 'Nieuw huis 2027' });
-  await refreshing;
-  // No refresh of our own: the store follows up by itself.
-  for (let i = 0; i < 10; i++) await settle();
-
-  assert.equal(issue(store, 1)?.milestone?.title, 'Nieuw huis 2027');
-});
-
 test('losing the connection disables online-only actions at once', async (t) => {
   const server = createFakeGitHub();
   const { store } = setup({ server });
@@ -555,6 +379,77 @@ test('a sub-issue move an older version left in the queue is dropped, the rest s
   assert.equal(issue(store, 2)?.title, 'notaris bellen');
   assert.equal(server.parentOf(2), null);
   assert.deepEqual(store.getState().failed, []);
+});
+
+test('a Mijlpaal move an older version left in the queue is dropped, the rest still sent', async () => {
+  const server = createFakeGitHub();
+  server.addIssue({ title: 'notaris' });
+  const storage = memoryStorage();
+  storage.setItem(
+    'nexus.queue',
+    JSON.stringify([
+      { type: 'milestone', ref: 1, milestone: { number: 1, title: 'Nieuw huis 2026' } },
+      { type: 'update', ref: 1, title: 'notaris bellen' },
+    ]),
+  );
+  const { store } = setup({ server, storage });
+  assert.equal(store.getState().pending, 1);
+
+  await store.refresh();
+  await store.flush();
+
+  assert.equal(issue(store, 1)?.title, 'notaris bellen');
+  assert.equal(server.byNumber(1).milestone, null);
+  assert.deepEqual(store.getState().failed, []);
+});
+
+test('a Taak an older version queued with a Mijlpaal is created without it', async () => {
+  const server = createFakeGitHub();
+  const storage = memoryStorage();
+  storage.setItem(
+    'nexus.queue',
+    JSON.stringify([
+      { type: 'create', cid: 'cid-old', at: '2026-01-01T00:00:00Z', title: 'notaris', body: '', labels: [], assignees: [], milestone: 1 },
+    ]),
+  );
+  const { store } = setup({ server, storage });
+
+  await store.refresh();
+  await store.flush();
+
+  assert.equal(server.byNumber(1).title, 'notaris');
+  assert.equal(server.byNumber(1).milestone, null);
+});
+
+test('the Mijlpalen an older version cached are dropped from the device', async () => {
+  const server = createFakeGitHub();
+  server.addIssue();
+  const storage = memoryStorage();
+  await setup({ server, storage }).store.refresh();
+  // As an older version kept them: a list of its own, and the response it came from.
+  const cache = JSON.parse(storage.getItem('nexus.cache') ?? '{}');
+  const path = '/repos/Tjaronee/Nexus/milestones?state=all&per_page=100';
+  cache.milestones = [{ number: 1, title: 'Nieuw huis 2026', state: 'open', description: '', dueOn: null }];
+  cache.responses.push([path, { etag: '"m1"', body: cache.milestones, next: null }]);
+  storage.setItem('nexus.cache', JSON.stringify(cache));
+
+  const { store } = setup({ server, storage });
+  server.addIssue();
+  await store.refresh();
+
+  const kept = JSON.parse(storage.getItem('nexus.cache') ?? '{}');
+  assert.equal('milestones' in kept, false);
+  assert.ok(kept.responses.every((/** @type {[string, any]} */ [p]) => !p.includes('/milestones')));
+});
+
+test('refresh no longer asks GitHub for Mijlpalen', async () => {
+  const server = createFakeGitHub();
+  const { store } = setup({ server });
+
+  await store.refresh();
+
+  assert.ok(server.state.log.every((e) => !e.path.includes('/milestones')), JSON.stringify(server.state.log));
+  assert.equal('milestones' in store.getState(), false);
 });
 
 test('comments load on request, and new ones show before they are sent', async () => {

@@ -4,7 +4,6 @@ import { soortOf, tapSoort, soortChange } from './soort.js';
 
 /** @typedef {import('./data/model.js').Issue} Issue */
 /** @typedef {import('./data/model.js').IssueRef} IssueRef */
-/** @typedef {import('./data/store.js').Milestone} Milestone */
 
 /**
  * A Taak as its detail screen shows it. "Geblokkeerd door" keeps closed
@@ -45,26 +44,20 @@ export function assigneeChange(current, chosen) {
 }
 
 /**
- * What the Soort chips and the Mijlpaal and Toegewezen pickers offer for this
- * Taak, and what it has now: `mijlpaal` is an index into the list (-1 for
- * none), `toegewezen` the logins to tick. A Mijlpaal it belongs to stays
- * choosable after it closes, and so do its Soort and anyone it is
- * Toegewezen to.
- * @param {{ issues: Issue[], milestones: Milestone[], labels?: string[] }} state
+ * What the Soort chips and the Toegewezen picker offer for this Taak, and
+ * what it has now: `toegewezen` the logins to tick. Its Soort stays
+ * choosable, and so does anyone it is Toegewezen to.
+ * @param {{ issues: Issue[], labels?: string[] }} state
  * @param {Issue} issue
  * @param {string} me the signed-in login
  */
 export function editChoices(state, issue, me) {
-  const { mijlpalen, people, soorten } = choices(state, me);
+  const { people, soorten } = choices(state, me);
   const soort = soortOf(issue);
   if (soort && !soorten.includes(soort)) soorten.push(soort);
-  const milestone = issue.milestone;
-  if (milestone && !mijlpalen.some((m) => m.number === milestone.number)) mijlpalen.push(milestone);
   const assigned = issue.assignees.map((a) => a.login);
   for (const login of assigned) if (!has(people, login)) people.push(login);
   return {
-    mijlpalen,
-    mijlpaal: milestone ? mijlpalen.findIndex((m) => m.number === milestone.number) : -1,
     people,
     toegewezen: people.filter((login) => has(assigned, login)),
     soorten,

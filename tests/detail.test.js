@@ -13,7 +13,7 @@ function issue(over) {
   const number = over.number ?? 1;
   return {
     ref: number, number, id: number, cid: null, title: `Taak ${number}`, body: '', state: 'open', stateReason: null,
-    labels: [], assignees: [], milestone: null,
+    labels: [], assignees: [],
     blockedByCount: 0, blockedBy: [], comments: 0, createdAt: '', updatedAt: '', closedAt: null,
     ...over,
   };
@@ -56,28 +56,24 @@ test('turns the ticked people into who to add and who to remove, ignoring case',
   assert.deepEqual(assigneeChange([], []), { add: [], remove: [] });
 });
 
-test('the pickers show what the Taak has now, even a closed Mijlpaal', () => {
-  const taak = issue({ number: 3, milestone: { number: 9, title: 'Bruiloft' }, assignees: [{ login: 'Tjaronee', avatarUrl: '' }] });
-  const milestones = [{ number: 1, title: 'Nieuw huis 2026', state: /** @type {const} */ ('open'), description: '', dueOn: null }];
+test('the pickers show who the Taak is Toegewezen to now', () => {
+  const taak = issue({ number: 3, assignees: [{ login: 'Tjaronee', avatarUrl: '' }] });
 
-  const c = editChoices({ issues: [taak], milestones }, taak, 'tjaronee');
+  const c = editChoices({ issues: [taak] }, taak, 'tjaronee');
 
-  assert.deepEqual(c.mijlpalen.map((m) => m.title), ['Nieuw huis 2026', 'Bruiloft']);
-  assert.equal(c.mijlpaal, 1);
   assert.deepEqual(c.people, ['tjaronee']);
   assert.deepEqual(c.toegewezen, ['tjaronee']);
 });
 
-test('the pickers show nothing chosen for a Taak without Mijlpaal or people', () => {
+test('the pickers show nothing chosen for a Taak without people', () => {
   const taak = issue({ number: 3 });
-  const c = editChoices({ issues: [taak], milestones: [] }, taak, 'tjaronee');
-  assert.equal(c.mijlpaal, -1);
+  const c = editChoices({ issues: [taak] }, taak, 'tjaronee');
   assert.deepEqual(c.toegewezen, []);
 });
 
 test('someone Toegewezen who is not offered yet is added to the people', () => {
   const taak = issue({ number: 3, assignees: [{ login: 'gast', avatarUrl: '' }] });
-  const c = editChoices({ issues: [], milestones: [] }, taak, 'tjaronee');
+  const c = editChoices({ issues: [] }, taak, 'tjaronee');
   assert.deepEqual(c.people, ['tjaronee', 'gast']);
   assert.deepEqual(c.toegewezen, ['gast']);
 });
@@ -159,7 +155,7 @@ test('reads the Soort of the Taak, or none', () => {
 
 test('offers every known Soort, with the Taak\'s own even if its label is gone', () => {
   const taak = issue({ number: 3, state: 'closed', labels: ['soort: tuin'] });
-  const c = editChoices({ issues: [taak], milestones: [], labels: ['soort: sociaal', 'soort: klusjes'] }, taak, 'tjaronee');
+  const c = editChoices({ issues: [taak], labels: ['soort: sociaal', 'soort: klusjes'] }, taak, 'tjaronee');
   assert.deepEqual(c.soorten, ['klusjes', 'sociaal', 'tuin']);
 });
 

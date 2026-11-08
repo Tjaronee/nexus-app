@@ -9,7 +9,7 @@ function issue(over) {
   const number = over.number ?? 1;
   return {
     ref: number, number, id: number, cid: null, title: `Taak ${number}`, body: '', state: 'open', stateReason: null,
-    labels: [], assignees: [], milestone: null,
+    labels: [], assignees: [],
     blockedByCount: 0, blockedBy: [], comments: 0, createdAt: '', updatedAt: '', closedAt: null,
     ...over,
   };

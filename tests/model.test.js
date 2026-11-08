@@ -32,8 +32,11 @@ test('reads the fields the screens need from a GitHub issue', () => {
   assert.equal(issue.title, 'Meubels opmeten');
   assert.deepEqual(issue.labels, ['prio: high', 'urgency: now']);
   assert.deepEqual(issue.assignees, [{ login: 'tjaronee', avatarUrl: 'https://avatars/t.png' }]);
-  assert.deepEqual(issue.milestone, { number: 1, title: 'Nieuw huis 2026' });
   assert.equal(issue.blockedByCount, 2);
+});
+
+test('a Mijlpaal GitHub still sends is left out (Nexus ADR 0007)', () => {
+  assert.equal('milestone' in toIssue(raw()), false);
 });
 
 test('hides the client ID in the body and exposes it separately', () => {
